@@ -20,4 +20,5 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: bun install
       - run: bun run build
-      - run: bun publish
+      - run: bun pm pack
+      - run: npm publish
