@@ -36,7 +36,7 @@ export type NotionPageMetadataKeys = Exclude<
  */
 export type NotionMutPageMetadataKeys = Exclude<
   keyof UpdatePageParameters,
-  "page_id" | "properties" | "archived"
+  "page_id" | "properties" | "archived" | "erase_content" | "template"
 >;
 /**
  * Type of properties of a Notion page. Same as PageObjectResponse['properties'].
@@ -53,7 +53,9 @@ export type NotionPropertyTypeEnum = NotionPropertyValues["type"];
 /**
  * Type of mutable property for create/update Notion page.
  */
-export type NotionMutProperties = CreatePageParameters["properties"]; // applicable for both create and update
+export type NotionMutProperties = NonNullable<
+  CreatePageParameters["properties"]
+>; // applicable for both create and update
 /**
  * Type of mutable property value for create/update Notion page.
  */

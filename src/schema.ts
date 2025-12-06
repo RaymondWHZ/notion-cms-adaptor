@@ -195,9 +195,10 @@ function isMutableMetadataKey(
 ): key is NotionMutPageMetadataKeys {
   // These are the mutable metadata keys from UpdatePageParameters
   const mutableKeys: NotionMutPageMetadataKeys[] = [
+    "in_trash",
+    "is_locked",
     "icon",
     "cover",
-    "in_trash",
   ];
   return mutableKeys.includes(key as NotionMutPageMetadataKeys);
 }

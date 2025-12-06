@@ -12,7 +12,7 @@ import {
 } from "../src";
 import {
   PageObjectResponse,
-  QueryDatabaseResponse,
+  QueryDataSourceResponse,
 } from "@notionhq/client/build/src/api-endpoints";
 
 const TEST_DB_ID = "0000";
@@ -87,17 +87,18 @@ const notionClient = new Client();
 const client = createNotionDBClient({
   notionClient,
   dbSchemas: dbSchema,
-  dbMap: {
+  dataSourceMap: {
     projects: TEST_DB_ID,
   },
 });
 
 test("query", async () => {
-  const query = spyOn(notionClient.databases, "query");
+  const query = spyOn(notionClient.dataSources, "query");
   query.mockImplementation(async () => {
     return {
       results: [TEST_PAGE_RESPONSE],
-    } as unknown as QueryDatabaseResponse;
+      has_more: false,
+    } as unknown as QueryDataSourceResponse;
   });
 
   const res = await client.query("projects", {
@@ -108,9 +109,9 @@ test("query", async () => {
       },
     },
   });
-  expect(notionClient.databases.query).toBeCalledTimes(1);
-  expect(notionClient.databases.query).toBeCalledWith({
-    database_id: TEST_DB_ID,
+  expect(notionClient.dataSources.query).toBeCalledTimes(1);
+  expect(notionClient.dataSources.query).toBeCalledWith({
+    data_source_id: TEST_DB_ID,
     filter: {
       property: "tags",
       multi_select: {
@@ -149,7 +150,7 @@ test("insert", async () => {
   expect(notionClient.pages.create).toBeCalledTimes(1);
   expect(notionClient.pages.create).toBeCalledWith({
     parent: {
-      database_id: TEST_DB_ID,
+      data_source_id: TEST_DB_ID,
     },
     properties: {
       tags: [
@@ -202,21 +203,21 @@ const customNameSchema = createDBSchemas({
 const customNameClient = createNotionDBClient({
   notionClient,
   dbSchemas: customNameSchema,
-  dbMap: {
+  dataSourceMap: {
     tasks: TEST_CUSTOM_NAME_DB_ID,
   },
 });
 
 test("query with custom property names", async () => {
-  const query = spyOn(notionClient.databases, "query");
+  const query = spyOn(notionClient.dataSources, "query");
   query.mockImplementation(async () => {
     return {
       results: [TEST_CUSTOM_NAME_PAGE_RESPONSE],
-    } as unknown as QueryDatabaseResponse;
+    } as unknown as QueryDataSourceResponse;
   });
 
   const res = await customNameClient.query("tasks");
-  expect(notionClient.databases.query).toBeCalledTimes(1);
+  expect(notionClient.dataSources.query).toBeCalledTimes(1);
   expect(res).toBeArrayOfSize(1);
   // TypeScript key is "isDone" but reads from Notion property "done"
   expect(res[0].isDone).toBe(true);
@@ -241,7 +242,7 @@ test("insert with custom property names", async () => {
   expect(notionClient.pages.create).toBeCalledTimes(1);
   expect(notionClient.pages.create).toBeCalledWith({
     parent: {
-      database_id: TEST_CUSTOM_NAME_DB_ID,
+      data_source_id: TEST_CUSTOM_NAME_DB_ID,
     },
     properties: {
       // Should use Notion property name "done", not TypeScript key "isDone"

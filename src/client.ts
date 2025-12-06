@@ -1,9 +1,9 @@
 import type {
-  DatabaseObjectResponse,
+  DataSourceObjectResponse,
   PageObjectResponse,
-  PartialDatabaseObjectResponse,
+  PartialDataSourceObjectResponse,
   PartialPageObjectResponse,
-  QueryDatabaseParameters,
+  QueryDataSourceParameters,
   UpdatePageParameters,
 } from "@notionhq/client/build/src/api-endpoints";
 import { Client, collectPaginatedAPI, isFullPage } from "@notionhq/client";
@@ -29,13 +29,13 @@ import type {
 } from "./types";
 
 function isAllFullPage(
-  results: Array<
+  results: (
     | PageObjectResponse
     | PartialPageObjectResponse
-    | DatabaseObjectResponse
-    | PartialDatabaseObjectResponse
-  >,
-): results is Array<PageObjectResponse> {
+    | DataSourceObjectResponse
+    | PartialDataSourceObjectResponse
+  )[],
+): results is PageObjectResponse[] {
   return results.every(isFullPage);
 }
 
@@ -87,7 +87,7 @@ async function processRow<T extends DBSchemaType>(
 }
 
 async function processRows<T extends DBSchemaType>(
-  results: Array<PageObjectResponse>,
+  results: PageObjectResponse[],
   schema: T,
   client: Client,
 ): Promise<DBInfer<T>[]> {
@@ -136,11 +136,12 @@ function createMutateData<T extends DBSchemaType>(
     if (isMetadataType(type)) {
       const key = type.slice(2) as NotionMutPageMetadataKeys;
       const composer = def.composer as ValueComposer<typeof type>;
-      // @ts-expect-error
+      // @ts-expect-error -- TS cannot infer that key is of type NotionMutPageMetadataKeys
       parameters[key] = composer(value);
     } else {
       const name = def.propertyName ?? key.toString();
       const composer = def.composer as ValueComposer<typeof type>;
+      // @ts-expect-error -- TS cannot infer that parameters.properties[name] is of type matching composer output
       parameters.properties[name] = composer(value);
     }
   }
@@ -165,21 +166,23 @@ type SchemasOptions<DBS extends DBSchemasType> = {
    */
   dbSchemas: DBS;
 };
-type DBPageOptions = {
-  /**
-   * The ID of the page containing all databases.
-   */
-  dbPageId: string;
-  /**
-   * The prefix of the database titles. Will be omitted when querying databases.
-   */
-  dbPrefix?: string;
+type AutoDetectOptions = {
+  autoDetectDataSources: {
+    /**
+     * The ID of the page containing all databases.
+     */
+    pageId: string;
+    /**
+     * The prefix of the database titles. Will be omitted when querying databases.
+     */
+    dataSourcePrefix?: string;
+  };
 };
-type DBMapOptions = {
+type DataSourceMapOptions = {
   /**
-   * The map of database names to their IDs. If provided, the client will not query the page for database IDs.
+   * The map of datasource names to their IDs. If provided, the client use this map directly.
    */
-  dbMap: Record<string, string>;
+  dataSourceMap: Record<string, string>;
 };
 
 /**
@@ -192,7 +195,7 @@ export type NotionDBClientOptions<DBS extends DBSchemasType> = (
   | NotionClientOptions
 ) &
   SchemasOptions<DBS> &
-  (DBPageOptions | DBMapOptions);
+  (AutoDetectOptions | DataSourceMapOptions);
 
 function createClient<DBS extends DBSchemasType>(
   options: NotionDBClientOptions<DBS>,
@@ -216,41 +219,54 @@ function createUseDatabaseFunction<DBS extends DBSchemasType>(
   client: Client,
 ) {
   type DBName = keyof DBS;
-  if ("dbMap" in options) {
+  if ("dataSourceMap" in options) {
     return async <R>(
       name: DBName,
       callback: (id: string) => Promise<R>,
     ): Promise<R> => {
       const rawName = (name as string).split("__")[0];
-      if (!(rawName in options.dbMap)) {
+      if (!(rawName in options.dataSourceMap)) {
         throw Error("Database not found");
       }
-      const id = options.dbMap[rawName];
+      const id = options.dataSourceMap[rawName];
       return await callback(id);
     };
-  } else if ("dbPageId" in options) {
-    const { dbPageId, dbPrefix = DEFAULT_DB_PREFIX } = options;
-    const databaseIdMap = new Map<string, string>();
+  } else if ("autoDetectDataSources" in options) {
+    const {
+      autoDetectDataSources: { pageId, dataSourcePrefix = DEFAULT_DB_PREFIX },
+    } = options;
+
+    const dataSourceIdMap = new Map<string, string>();
 
     const fillDatabaseIdMap = async () => {
-      const databases = await client.blocks.children.list({
-        block_id: dbPageId,
+      const { results: databases } = await client.blocks.children.list({
+        block_id: pageId,
       });
-      for (const database of databases.results) {
+      for (const database of databases) {
         if ("type" in database && database.type === "child_database") {
-          const title = database.child_database.title;
-          if (title.startsWith(dbPrefix)) {
-            databaseIdMap.set(title.slice(dbPrefix.length), database.id);
+          const result = await client.databases.retrieve({
+            database_id: database.id,
+          });
+          if ("data_sources" in result) {
+            for (const dataSource of result.data_sources) {
+              const title = dataSource.name;
+              if (title.startsWith(dataSourcePrefix)) {
+                dataSourceIdMap.set(
+                  title.slice(dataSourcePrefix.length),
+                  dataSource.id,
+                );
+              }
+            }
           }
         }
       }
     };
 
     const getDatabaseId = async (rawName: string) => {
-      if (!databaseIdMap.has(rawName)) {
+      if (!dataSourceIdMap.has(rawName)) {
         await fillDatabaseIdMap();
       }
-      const id = databaseIdMap.get(rawName);
+      const id = dataSourceIdMap.get(rawName);
       if (!id) {
         throw Error("Database not found");
       }
@@ -266,7 +282,7 @@ function createUseDatabaseFunction<DBS extends DBSchemasType>(
         const id = await getDatabaseId(rawName);
         return await callback(id);
       } catch (e) {
-        databaseIdMap.clear();
+        dataSourceIdMap.clear();
         throw e;
       }
     };
@@ -279,7 +295,7 @@ function createUseDatabaseFunction<DBS extends DBSchemasType>(
  * Query parameters. Same as Notions API query parameters but without `database_id` and `filter_properties`.
  */
 export type NotionDBQueryParameters = Pick<
-  QueryDatabaseParameters,
+  QueryDataSourceParameters,
   "filter" | "sorts" | "in_trash" | "archived"
 >;
 /**
@@ -303,10 +319,10 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
   type S = typeof dbSchemas;
 
   const client = createClient(options);
-  const useDatabaseId = createUseDatabaseFunction(options, client);
+  const useDataSourceId = createUseDatabaseFunction(options, client);
 
   async function assertPageInDatabase(db: DBName, pageId: string) {
-    await useDatabaseId(db, async (id) => {
+    await useDataSourceId(db, async (id) => {
       const page = await client.pages.retrieve({
         page_id: pageId,
       });
@@ -340,20 +356,25 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       params: NotionDBQueryParameters = {},
       limit?: number,
     ): Promise<DBInfer<S[T]>[]> {
-      return useDatabaseId(db, async (id) => {
-        let results;
+      return useDataSourceId(db, async (id) => {
+        let results: (
+          | PageObjectResponse
+          | PartialPageObjectResponse
+          | DataSourceObjectResponse
+          | PartialDataSourceObjectResponse
+        )[];
         if (limit) {
           results = (
-            await client.databases.query({
+            await client.dataSources.query({
               ...params,
-              database_id: id,
+              data_source_id: id,
               page_size: limit,
             })
           ).results;
         } else {
-          results = await collectPaginatedAPI(client.databases.query, {
+          results = await collectPaginatedAPI(client.dataSources.query, {
             ...params,
-            database_id: id,
+            data_source_id: id,
           });
         }
         if (!isAllFullPage(results)) {
@@ -387,7 +408,7 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       db: T,
       id: string,
     ): Promise<DBInfer<S[T]>> {
-      return useDatabaseId(db, async (dbId) => {
+      return useDataSourceId(db, async (dbId) => {
         const response = await client.pages.retrieve({
           page_id: id,
         });
@@ -474,12 +495,12 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       unique_id: number,
       contentProperty: C,
     ): Promise<TypeWithContent<DBInfer<S[T]>, C>> {
-      return useDatabaseId(db, async (dbId) => {
+      return useDataSourceId(db, async (dbId) => {
         const uniqueIdProp = Object.entries(dbSchemas[db]).find(
           ([_, type]) => type.type === "unique_id",
         )![0];
-        const response = await client.databases.query({
-          database_id: dbId,
+        const response = await client.dataSources.query({
+          data_source_id: dbId,
           filter: {
             property: uniqueIdProp,
             unique_id: {
@@ -519,9 +540,9 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       G extends keyof DB,
       R extends Record<string, DB[G]>,
     >(db: T, keyProp: F, valueProp: G): Promise<R> {
-      return useDatabaseId(db, async (id) => {
-        const results = await collectPaginatedAPI(client.databases.query, {
-          database_id: id,
+      return useDataSourceId(db, async (id) => {
+        const results = await collectPaginatedAPI(client.dataSources.query, {
+          data_source_id: id,
         });
         if (!isAllFullPage(results)) {
           throw Error("Not all results are full page");
@@ -549,12 +570,12 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       db: T,
       title: string,
     ): Promise<NotionPageContent> {
-      return useDatabaseId(db, async (id) => {
+      return useDataSourceId(db, async (id) => {
         const titleProp = Object.entries(dbSchemas[db]).find(
           ([_, type]) => type.type === "title",
         )![0];
-        const response = await client.databases.query({
-          database_id: id,
+        const response = await client.dataSources.query({
+          data_source_id: id,
           filter: {
             property: titleProp,
             title: {
@@ -584,10 +605,10 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       db: T,
       data: DBMutateInfer<S[T]>,
     ): Promise<DBInfer<S[T]>> {
-      return useDatabaseId(db, async (id) => {
+      return useDataSourceId(db, async (id) => {
         const result = await client.pages.create({
           parent: {
-            database_id: id,
+            data_source_id: id,
           },
           ...createMutateData(data, dbSchemas[db]),
         });

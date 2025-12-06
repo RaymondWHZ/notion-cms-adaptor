@@ -50,7 +50,9 @@ type Project = DBObjectTypes["projects"];
 
 const client = createNotionDBClient({
   notionToken: "",
-  dbPageId: "",
+  autoDetectDataSources: {
+    pageId: "",
+  },
   dbSchemas,
 });
 

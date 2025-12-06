@@ -12,11 +12,11 @@
     "build"
   ],
   "devDependencies": {
-    "@types/bun": "^1.3.3",
-    "encoding": "^0.1.13",
-    "typescript": "^5.9.3"
+    "@types/bun": "1.3.2",
+    "encoding": "0.1.13",
+    "typescript": "5.9.3"
   },
   "dependencies": {
-    "@notionhq/client": "^2.2.15"
+    "@notionhq/client": "5.4.0"
   }
 }
