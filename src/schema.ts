@@ -11,7 +11,7 @@ import type {
   PropertyInfer,
   ValueComposer,
   ValueHandler,
-  ValueType
+  ValueType,
 } from "./types";
 import type { RichTextItemResponse } from "@notionhq/client/build/src/api-endpoints";
 
@@ -19,7 +19,9 @@ import type { RichTextItemResponse } from "@notionhq/client/build/src/api-endpoi
  * A type safe way to define database schemas. Directly return the schema object.
  * @param schema The schema object
  */
-export function createDBSchemas<T extends DBSchemasType>(schema: T): typeof schema {
+export function createDBSchemas<T extends DBSchemasType>(
+  schema: T,
+): typeof schema {
   return schema;
 }
 
@@ -28,7 +30,7 @@ export function createDBSchemas<T extends DBSchemasType>(schema: T): typeof sche
  * @param arr The list of rich text items
  */
 export function packPlainText(arr: RichTextItemResponse[]): string {
-  return arr.reduce((acc, cur) => acc + cur.plain_text, '');
+  return arr.reduce((acc, cur) => acc + cur.plain_text, "");
 }
 
 /**
@@ -40,17 +42,19 @@ export function packPlainText(arr: RichTextItemResponse[]): string {
  * @param preSignedUrl The preSignedUrl of the image
  */
 export function convertNotionImage(pageId: string, preSignedUrl: string) {
-  return 'https://www.notion.so/image/' +
-    encodeURIComponent(preSignedUrl.split('?')[0]) +
-    '?id=' +
+  return (
+    "https://www.notion.so/image/" +
+    encodeURIComponent(preSignedUrl.split("?")[0]) +
+    "?id=" +
     pageId +
-    '&table=block';
+    "&table=block"
+  );
 }
 
 const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
   const valueToRaw: AdapterPropertyDefinition<T, ValueType<T>> = {
     type,
-    handler: value => value
+    handler: (value) => value,
   };
   return {
     /**
@@ -59,7 +63,7 @@ const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
     ...valueToRaw,
     /**
      * Directly return the raw value. Does not support mutation.
-     * 
+     *
      * It is now the same as simply omitting this raw() method call.
      */
     raw(): AdapterPropertyDefinition<T, ValueType<T>> {
@@ -69,31 +73,41 @@ const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
      * Directly return the raw value with a default value if the value is null or undefined. Does not support mutation.
      * @param defaultValue The default value
      */
-    rawWithDefault(defaultValue: NonNullable<ValueType<T>>): AdapterPropertyDefinition<T, NonNullable<ValueType<T>>> {
+    rawWithDefault(
+      defaultValue: NonNullable<ValueType<T>>,
+    ): AdapterPropertyDefinition<T, NonNullable<ValueType<T>>> {
       return {
         type,
-        handler: value => value ?? defaultValue,
-      }
+        handler: (value) => value ?? defaultValue,
+      };
     },
     /**
      * Handle the value using a custom handler. Does not support mutation.
      * @param handler The custom handler
      */
-    handleUsing<R>(handler: ValueHandler<T, R>): AdapterPropertyDefinition<T, R> {
+    handleUsing<R>(
+      handler: ValueHandler<T, R>,
+    ): AdapterPropertyDefinition<T, R> {
       return {
         type,
-        handler
-      }
+        handler,
+      };
     },
-  }
-}
+  };
+};
 
-const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(type: T) => {
-  const valueToRaw: AdapterMutablePropertyDefinition<T, ValueType<T>, MutateValueType<T>> = {
+const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(
+  type: T,
+) => {
+  const valueToRaw: AdapterMutablePropertyDefinition<
+    T,
+    ValueType<T>,
+    MutateValueType<T>
+  > = {
     type,
-    handler: value => value,
-    composer: value => value
-  }
+    handler: (value) => value,
+    composer: (value) => value,
+  };
   return {
     /**
      * Expand the default options, so that the object itself can be used as a definition.
@@ -101,48 +115,66 @@ const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(typ
     ...valueToRaw,
     /**
      * Directly return the raw value. Supports mutation.
-     * 
+     *
      * It is now the same as simply omitting this raw() method call.
      */
-    raw(): AdapterMutablePropertyDefinition<T, ValueType<T>, MutateValueType<T>> {
+    raw(): AdapterMutablePropertyDefinition<
+      T,
+      ValueType<T>,
+      MutateValueType<T>
+    > {
       return valueToRaw;
     },
     /**
      * Directly return the raw value with a default value if the value is null or undefined. Supports mutation.
      * @param defaultValue The default value
      */
-    rawWithDefault(defaultValue: NonNullable<ValueType<T>>): AdapterMutablePropertyDefinition<T, NonNullable<ValueType<T>>, MutateValueType<T>> {
+    rawWithDefault(
+      defaultValue: NonNullable<ValueType<T>>,
+    ): AdapterMutablePropertyDefinition<
+      T,
+      NonNullable<ValueType<T>>,
+      MutateValueType<T>
+    > {
       return {
         type,
-        handler: value => value ?? defaultValue,
-        composer: value => value
-      }
+        handler: (value) => value ?? defaultValue,
+        composer: (value) => value,
+      };
     },
     /**
      * Handle the value using a custom handler. Supports mutation using the raw underlying value.
      * @param handler The custom handler
      */
-    handleUsing<R>(handler: ValueHandler<T, R>): AdapterMutablePropertyDefinition<T, R, MutateValueType<T>> {
+    handleUsing<R>(
+      handler: ValueHandler<T, R>,
+    ): AdapterMutablePropertyDefinition<T, R, MutateValueType<T>> {
       return {
         type,
         handler,
-        composer: value => value
-      }
+        composer: (value) => value,
+      };
     },
     /**
      * Handle the value using a custom handler. Supports mutation via a custom composer.
      * @param handler The custom handler
      * @param composer The custom composer
      */
-    handleAndComposeUsing<R, I = R>({ handler, composer }: { handler: ValueHandler<T, R>, composer: ValueComposer<T, I> }): AdapterMutablePropertyDefinition<T, R, I> {
+    handleAndComposeUsing<R, I = R>({
+      handler,
+      composer,
+    }: {
+      handler: ValueHandler<T, R>;
+      composer: ValueComposer<T, I>;
+    }): AdapterMutablePropertyDefinition<T, R, I> {
       return {
         type,
         handler,
-        composer
-      }
+        composer,
+      };
     },
-  }
-}
+  };
+};
 
 /**
  * Reference a metadata key.
@@ -154,11 +186,13 @@ export function metadata<T extends NotionPageMetadataKeys>(key: T) {
 /**
  * Reference a mutable metadata key.
  */
-export function mutableMetadata<T extends NotionMutablePageMetadataKeys>(key: T) {
+export function mutableMetadata<T extends NotionMutablePageMetadataKeys>(
+  key: T,
+) {
   return makeMutableDefaultOptions(`__${key}`);
 }
 
-const __idOptions = metadata('id');
+const __idOptions = metadata("id");
 
 /**
  * Reference the id metadata. Same as using 'metadata("id")'.
@@ -168,14 +202,14 @@ export function __id() {
 }
 
 const checkboxOptions = {
-  ...makeMutableDefaultOptions('checkbox'),
+  ...makeMutableDefaultOptions("checkbox"),
   /**
    * Convert the value to a boolean. Supports mutation.
    */
   boolean() {
     return this.raw();
-  }
-}
+  },
+};
 
 /**
  * Define a checkbox property.
@@ -185,14 +219,16 @@ export function checkbox() {
 }
 
 const createdByOptions = {
-  ...makeDefaultOptions('created_by'),
+  ...makeDefaultOptions("created_by"),
   /**
    * Get the name of the creator. Does not support mutation.
    */
   name() {
-    return this.handleUsing(value => 'name' in value ? value.name ?? '' : '')
-  }
-}
+    return this.handleUsing((value) =>
+      "name" in value ? (value.name ?? "") : "",
+    );
+  },
+};
 /**
  * Define a created_by property.
  */
@@ -201,14 +237,14 @@ export function created_by() {
 }
 
 const createdTimeOptions = {
-  ...makeDefaultOptions('created_time'),
+  ...makeDefaultOptions("created_time"),
   /**
    * Get the time string of the creation time. Does not support mutation.
    */
   timeString() {
     return this.raw();
-  }
-}
+  },
+};
 /**
  * Define a created_time property.
  */
@@ -217,19 +253,19 @@ export function created_time() {
 }
 
 export type DateRange = {
-  start: string
-  end: string
-}
+  start: string;
+  end: string;
+};
 const dateOptions = {
-  ...makeMutableDefaultOptions('date'),
+  ...makeMutableDefaultOptions("date"),
   /**
    * Get the start date of the date range, defaults to empty string. Supports mutation.
    */
   startDate() {
     return this.handleAndComposeUsing({
-      handler: value => value?.start ?? '',
-      composer: value => ({ start: value })
-    })
+      handler: (value) => value?.start ?? "",
+      composer: (value) => ({ start: value }),
+    });
   },
   /**
    * Get the date range. Supports mutation.
@@ -238,14 +274,14 @@ const dateOptions = {
     return this.handleAndComposeUsing<DateRange>({
       handler: (value) => {
         return {
-          start: value?.start ?? '',
-          end: value?.end ?? ''
-        }
+          start: value?.start ?? "",
+          end: value?.end ?? "",
+        };
       },
-      composer: (value) => value
-    })
-  }
-}
+      composer: (value) => value,
+    });
+  },
+};
 
 /**
  * Define a date property.
@@ -255,14 +291,14 @@ export function date() {
 }
 
 const emailOptions = {
-  ...makeMutableDefaultOptions('email'),
+  ...makeMutableDefaultOptions("email"),
   /**
    * Get the email string. Supports mutation.
    */
   string() {
-    return this.rawWithDefault('');
-  }
-}
+    return this.rawWithDefault("");
+  },
+};
 /**
  * Define an email property.
  */
@@ -271,23 +307,25 @@ export function email() {
 }
 
 const filesOptions = {
-  ...makeMutableDefaultOptions('files'),
+  ...makeMutableDefaultOptions("files"),
   /**
    * Get the urls of the files. Supports mutation using the raw underlying value.
    */
   urls() {
-    return this.handleUsing((value) => value.reduce((acc, file) => {
-      let result: string | undefined = undefined;
-      if ('file' in file) {
-        result = file.file.url;
-      } else if ('external' in file) {
-        result = file.external.url;
-      }
-      if (result === undefined) {
-        return acc;
-      }
-      return acc.concat(result);
-    }, [] as string[]))
+    return this.handleUsing((value) =>
+      value.reduce((acc, file) => {
+        let result: string | undefined = undefined;
+        if ("file" in file) {
+          result = file.file.url;
+        } else if ("external" in file) {
+          result = file.external.url;
+        }
+        if (result === undefined) {
+          return acc;
+        }
+        return acc.concat(result);
+      }, [] as string[]),
+    );
   },
   /**
    * Get the url of the first file. Supports mutation using the raw underlying value.
@@ -296,15 +334,15 @@ const filesOptions = {
     return this.handleUsing((value) => {
       const file = value[0];
       if (!file) {
-        return '';
+        return "";
       }
-      if ('file' in file) {
+      if ("file" in file) {
         return file.file.url;
-      } else if ('external' in file) {
+      } else if ("external" in file) {
         return file.external.url;
       }
-      return '';
-    })
+      return "";
+    });
   },
   /**
    * Rewrite the preSignedUrl to use Notion's image optimization service, assuming the preSignedUrl is a Notion image.
@@ -312,16 +350,18 @@ const filesOptions = {
    * This is not an official API and may break at any time. Use at your own risk.
    */
   notionImageUrls() {
-    return this.handleUsing((value, { page: { id } }) => value.reduce((acc, file) => {
-      let result: string | undefined = undefined;
-      if ('file' in file) {
-        result = convertNotionImage(id, file.file.url);
-      }
-      if (result === undefined) {
-        return acc;
-      }
-      return acc.concat(result);
-    }, [] as string[]))
+    return this.handleUsing((value, { page: { id } }) =>
+      value.reduce((acc, file) => {
+        let result: string | undefined = undefined;
+        if ("file" in file) {
+          result = convertNotionImage(id, file.file.url);
+        }
+        if (result === undefined) {
+          return acc;
+        }
+        return acc.concat(result);
+      }, [] as string[]),
+    );
   },
   /**
    * Rewrite the preSignedUrl of the first image to use Notion's image optimization service, assuming the preSignedUrl is a Notion image.
@@ -332,15 +372,15 @@ const filesOptions = {
     return this.handleUsing((value, { page: { id } }) => {
       const file = value[0];
       if (!file) {
-        return '';
+        return "";
       }
-      if ('file' in file) {
+      if ("file" in file) {
         return convertNotionImage(id, file.file.url);
       }
-      return '';
-    })
-  }
-}
+      return "";
+    });
+  },
+};
 /**
  * Define a files property.
  */
@@ -349,54 +389,58 @@ export function files() {
 }
 
 const formulaOptions = {
-  ...makeDefaultOptions('formula'),
+  ...makeDefaultOptions("formula"),
   /**
    * Convert the value to string. Does not support mutation.
    */
   string() {
-    return this.handleUsing(value => {
-      if (value.type === 'string') {
-        return value.string ?? '';
-      } else if (value.type === 'number') {
-        return value.number?.toString() ?? '';
-      } else if (value.type === 'boolean') {
-        return value.boolean ? 'true' : 'false';
-      } else if (value.type === 'date') {
-        return value.date?.start ?? '';
+    return this.handleUsing((value) => {
+      if (value.type === "string") {
+        return value.string ?? "";
+      } else if (value.type === "number") {
+        return value.number?.toString() ?? "";
+      } else if (value.type === "boolean") {
+        return value.boolean ? "true" : "false";
+      } else if (value.type === "date") {
+        return value.date?.start ?? "";
       }
-      return '';
-    })
+      return "";
+    });
   },
   /**
    * If the value is boolean and is true, return true; otherwise return false. Does not support mutation.
    */
   booleanDefaultFalse() {
-    return this.handleUsing(value => value.type === 'boolean' ? value.boolean ?? false : false)
+    return this.handleUsing((value) =>
+      value.type === "boolean" ? (value.boolean ?? false) : false,
+    );
   },
   /**
    * If the value is number, return the number; otherwise return 0. Does not support mutation.
    */
   numberDefaultZero() {
-    return this.handleUsing(value => value.type === 'number' ? value.number ?? 0 : 0)
+    return this.handleUsing((value) =>
+      value.type === "number" ? (value.number ?? 0) : 0,
+    );
   },
   /**
    * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
    */
   dateRange() {
-    return this.handleUsing(value => {
-      if (value.type === 'date') {
+    return this.handleUsing((value) => {
+      if (value.type === "date") {
         return {
-          start: value.date?.start ?? '',
-          end: value.date?.end ?? ''
-        }
+          start: value.date?.start ?? "",
+          end: value.date?.end ?? "",
+        };
       }
       return {
-        start: '',
-        end: ''
-      }
-    })
-  }
-}
+        start: "",
+        end: "",
+      };
+    });
+  },
+};
 /**
  * Define a formula property.
  */
@@ -405,14 +449,16 @@ export function formula() {
 }
 
 const lastEditedByOptions = {
-  ...makeDefaultOptions('last_edited_by'),
+  ...makeDefaultOptions("last_edited_by"),
   /**
    * Get the name of the last editor. Does not support mutation.
    */
   name() {
-    return this.handleUsing(value => 'name' in value ? value.name ?? '' : '')
-  }
-}
+    return this.handleUsing((value) =>
+      "name" in value ? (value.name ?? "") : "",
+    );
+  },
+};
 /**
  * Define a last_edited_by property.
  */
@@ -421,14 +467,14 @@ export function last_edited_by() {
 }
 
 const lastEditedTimeOptions = {
-  ...makeDefaultOptions('last_edited_time'),
+  ...makeDefaultOptions("last_edited_time"),
   /**
    * Get the time string of the last edit time. Does not support mutation.
    */
   timeString() {
     return this.raw();
-  }
-}
+  },
+};
 /**
  * Define a last_edited_time property.
  */
@@ -437,37 +483,37 @@ export function last_edited_time() {
 }
 
 const multiSelectOptions = {
-  ...makeMutableDefaultOptions('multi_select'),
+  ...makeMutableDefaultOptions("multi_select"),
   /**
    * Get the names of the options. Supports mutation.
    */
   strings() {
     return this.handleAndComposeUsing({
-      handler: (value) => value.map(option => option.name),
-      composer: (value) => value.map(name => ({ name }))
-    })
+      handler: (value) => value.map((option) => option.name),
+      composer: (value) => value.map((name) => ({ name })),
+    });
   },
   /**
    * Get the names of the options, validating that they are in the provided list of values. Supports mutation.
    */
   stringEnums<T extends string>(...values: T[]) {
     return this.handleAndComposeUsing({
-      handler: value => {
-        const names = value.map(option => option.name);
-        if (!names.every(name => values.includes(name as T))) {
-          throw Error('Invalid status');
+      handler: (value) => {
+        const names = value.map((option) => option.name);
+        if (!names.every((name) => values.includes(name as T))) {
+          throw Error("Invalid status");
         }
         return names as T[];
       },
-      composer: value => {
-        if (!value.every(name => values.includes(name))) {
-          throw Error('Invalid status');
+      composer: (value) => {
+        if (!value.every((name) => values.includes(name))) {
+          throw Error("Invalid status");
         }
-        return value.map(name => ({ name }));
-      }
+        return value.map((name) => ({ name }));
+      },
     });
-  }
-}
+  },
+};
 /**
  * Define a multi_select property.
  */
@@ -476,14 +522,14 @@ export function multi_select() {
 }
 
 const numberOptions = {
-  ...makeMutableDefaultOptions('number'),
+  ...makeMutableDefaultOptions("number"),
   /**
    * If the value is number, return the number; otherwise return 0. Supports mutation.
    */
   numberDefaultZero() {
     return this.rawWithDefault(0);
-  }
-}
+  },
+};
 /**
  * Define a number property.
  */
@@ -492,19 +538,21 @@ export function number() {
 }
 
 const peopleOptions = {
-  ...makeMutableDefaultOptions('people'),
+  ...makeMutableDefaultOptions("people"),
   /**
    * Get the names of the people. Supports mutation using the raw underlying value.
    */
   names() {
-    return this.handleUsing(value => value.reduce((acc, person) => {
-      if ('name' in person) {
-        return acc.concat(person.name ?? '');
-      }
-      return acc;
-    }, [] as string[]))
-  }
-}
+    return this.handleUsing((value) =>
+      value.reduce((acc, person) => {
+        if ("name" in person) {
+          return acc.concat(person.name ?? "");
+        }
+        return acc;
+      }, [] as string[]),
+    );
+  },
+};
 /**
  * Define a people property.
  */
@@ -513,14 +561,14 @@ export function people() {
 }
 
 const phoneNumberOptions = {
-  ...makeMutableDefaultOptions('phone_number'),
+  ...makeMutableDefaultOptions("phone_number"),
   /**
    * Get the phone number string, default to empty string. Supports mutation.
    */
   string() {
-    return this.rawWithDefault('');
-  }
-}
+    return this.rawWithDefault("");
+  },
+};
 /**
  * Define a phone_number property.
  */
@@ -529,26 +577,28 @@ export function phone_number() {
 }
 
 interface RollupMappingItem {
-  rollupField: string
-  def: NotionPropertyDefinition
+  rollupField: string;
+  def: NotionPropertyDefinition;
 }
 interface RollupMapping {
-  [key: string]: RollupMappingItem | AdapterPropertyDefinition<'__id'>
+  [key: string]: RollupMappingItem | AdapterPropertyDefinition<"__id">;
 }
 type InferObject<T extends RollupMapping> = {
-  [K in keyof T]:
-    T[K] extends RollupMappingItem ? PropertyInfer<T[K]['def']> :
-    T[K] extends AdapterPropertyDefinition<'__id'> ? PropertyInfer<T[K]> : never
-}
+  [K in keyof T]: T[K] extends RollupMappingItem
+    ? PropertyInfer<T[K]["def"]>
+    : T[K] extends AdapterPropertyDefinition<"__id">
+      ? PropertyInfer<T[K]>
+      : never;
+};
 const relationOptions = {
-  ...makeMutableDefaultOptions('relation'),
+  ...makeMutableDefaultOptions("relation"),
   /**
    * Get the ids of the relations. Supports mutation.
    */
   ids() {
     return this.handleAndComposeUsing({
-      handler: value => value.map(relation => relation.id),
-      composer: (value) => value.map(id => ({ id }))
+      handler: (value) => value.map((relation) => relation.id),
+      composer: (value) => value.map((id) => ({ id })),
     });
   },
   /**
@@ -556,8 +606,8 @@ const relationOptions = {
    */
   singleId() {
     return this.handleAndComposeUsing({
-      handler: value => value[0].id,
-      composer: (value) => [{ id: value }]
+      handler: (value) => value[0].id,
+      composer: (value) => [{ id: value }],
     });
   },
   /**
@@ -572,15 +622,21 @@ const relationOptions = {
         return value.map(({ id }, index) => {
           const mappedObject = {} as InferObject<M>;
           Object.entries(mapping).forEach(([key, item]) => {
-            if ('rollupField' in item) {
+            if ("rollupField" in item) {
               const { rollupField, def } = item;
               const rollupProperty = properties[rollupField];
-              if (!rollupProperty || rollupProperty.type !== 'rollup' || rollupProperty.rollup.type !== 'array') {
-                throw Error('Invalid rollup field: ' + rollupField);
+              if (
+                !rollupProperty ||
+                rollupProperty.type !== "rollup" ||
+                rollupProperty.rollup.type !== "array"
+              ) {
+                throw Error("Invalid rollup field: " + rollupField);
               }
               const property = rollupProperty.rollup.array[index];
               if (property.type !== def.type) {
-                throw Error(`Property ${rollupField} type mismatch: ${property.type} !== ${def.type}`);
+                throw Error(
+                  `Property ${rollupField} type mismatch: ${property.type} !== ${def.type}`,
+                );
               }
               // @ts-expect-error
               const value = property[def.type] as ValueType<typeof def.type>;
@@ -588,20 +644,20 @@ const relationOptions = {
               // @ts-expect-error
               mappedObject[key] = handler(value, {});
             } else {
-              if (item.type !== '__id') {
-                throw Error('Invalid relation mapping: ' + key);
+              if (item.type !== "__id") {
+                throw Error("Invalid relation mapping: " + key);
               }
               // @ts-expect-error
               mappedObject[key] = item.handler(id, {});
             }
-          })
+          });
           return mappedObject;
         });
       },
-      composer: (value: string[]) => value.map(id => ({ id }))
-    })
-  }
-}
+      composer: (value: string[]) => value.map((id) => ({ id })),
+    });
+  },
+};
 
 /**
  * Define a relation property.
@@ -611,17 +667,17 @@ export function relation() {
 }
 
 const richTextOptions = {
-  ...makeMutableDefaultOptions('rich_text'),
+  ...makeMutableDefaultOptions("rich_text"),
   /**
    * Get the plain text version of the field. Supports mutation.
    */
   plainText() {
     return this.handleAndComposeUsing({
-      handler: value => packPlainText(value),
-      composer: (value) => [{ text: { content: value } }]
-    })
-  }
-}
+      handler: (value) => packPlainText(value),
+      composer: (value) => [{ text: { content: value } }],
+    });
+  },
+};
 /**
  * Define a rich_text property.
  */
@@ -629,33 +685,36 @@ export function rich_text() {
   return richTextOptions;
 }
 
-export type RollupArrayType = Extract<ValueType<'rollup'>, { type: 'array' }>['array']
-export type RollupArrayItemType = RollupArrayType[number]
+export type RollupArrayType = Extract<
+  ValueType<"rollup">,
+  { type: "array" }
+>["array"];
+export type RollupArrayItemType = RollupArrayType[number];
 const rollupOptions = {
-  ...makeDefaultOptions('rollup'),
+  ...makeDefaultOptions("rollup"),
   /**
    * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
    */
   dateRange() {
-    return this.handleUsing(value => {
-      if (value.type === 'date') {
+    return this.handleUsing((value) => {
+      if (value.type === "date") {
         return {
-          start: value.date?.start ?? '',
-          end: value.date?.end ?? ''
-        }
+          start: value.date?.start ?? "",
+          end: value.date?.end ?? "",
+        };
       }
       return {
-        start: '',
-        end: ''
-      }
+        start: "",
+        end: "",
+      };
     });
   },
   /**
    * If the value is number, return the number; otherwise return 0. Does not support mutation.
    */
   numberDefaultZero() {
-    return this.handleUsing(value => {
-      if (value.type === 'number') {
+    return this.handleUsing((value) => {
+      if (value.type === "number") {
         return value.number ?? 0;
       }
       return 0;
@@ -667,11 +726,11 @@ const rollupOptions = {
    * @param handler The custom handler
    */
   handleSingleUsing<R>(handler: (value: RollupArrayItemType | undefined) => R) {
-    return this.handleUsing(value => {
-      if (value.type === 'array') {
+    return this.handleUsing((value) => {
+      if (value.type === "array") {
         return handler(value.array[0]);
       }
-      throw Error('Invalid rollup type');
+      throw Error("Invalid rollup type");
     });
   },
   /**
@@ -680,14 +739,14 @@ const rollupOptions = {
    * @param handler The custom handler
    */
   handleArrayUsing<R>(handler: (value: RollupArrayType) => R) {
-    return this.handleUsing(value => {
-      if (value.type === 'array') {
+    return this.handleUsing((value) => {
+      if (value.type === "array") {
         return handler(value.array);
       }
-      throw Error('Invalid rollup type');
+      throw Error("Invalid rollup type");
     });
-  }
-}
+  },
+};
 /**
  * Define a rollup property.
  */
@@ -696,37 +755,37 @@ export function rollup() {
 }
 
 const selectOptions = {
-  ...makeMutableDefaultOptions('select'),
+  ...makeMutableDefaultOptions("select"),
   /**
    * Get the name of the option. Supports mutation.
    */
   optionalString() {
     return this.handleAndComposeUsing({
-      handler: value => value?.name,
-      composer: (value) => value ? ({ name: value }) : null
-    })
+      handler: (value) => value?.name,
+      composer: (value) => (value ? { name: value } : null),
+    });
   },
   /**
    * Get the name of the option, validating that it is in the provided list of values. Supports mutation.
    */
   stringEnum<T extends string | undefined>(...values: T[]) {
     return this.handleAndComposeUsing({
-      handler: value => {
+      handler: (value) => {
         const name = value?.name;
         if (!values.includes(name as T)) {
-          throw Error('Invalid status: ' + name);
+          throw Error("Invalid status: " + name);
         }
         return name as T;
       },
-      composer: value => {
+      composer: (value) => {
         if (!values.includes(value)) {
-          throw Error('Invalid status: ' + value);
+          throw Error("Invalid status: " + value);
         }
-        return value ? ({ name: value }) : null;
-      }
+        return value ? { name: value } : null;
+      },
     });
   },
-}
+};
 /**
  * Define a select property.
  */
@@ -735,37 +794,37 @@ export function select() {
 }
 
 const statusOptions = {
-  ...makeMutableDefaultOptions('status'),
+  ...makeMutableDefaultOptions("status"),
   /**
    * Get the name of the status. Supports mutation.
    */
   string() {
     return this.handleAndComposeUsing({
-      handler: value => value?.name ?? '',
-      composer: (value) => ({ name: value })
-    })
+      handler: (value) => value?.name ?? "",
+      composer: (value) => ({ name: value }),
+    });
   },
   /**
    * Get the name of the status, validating that it is in the provided list of values. Supports mutation.
    */
   stringEnum<T extends string>(...values: T[]) {
     return this.handleAndComposeUsing({
-      handler: value => {
+      handler: (value) => {
         const name = value?.name;
         if (!name || !values.includes(name as T)) {
-          throw Error('Invalid status: ' + name);
+          throw Error("Invalid status: " + name);
         }
         return name as T;
       },
       composer: (value: T) => {
         if (!value || !values.includes(value)) {
-          throw Error('Invalid status: ' + value);
+          throw Error("Invalid status: " + value);
         }
         return { name: value };
-      }
+      },
     });
   },
-}
+};
 /**
  * Define a status property.
  */
@@ -774,17 +833,17 @@ export function status() {
 }
 
 const titleOptions = {
-  ...makeMutableDefaultOptions('title'),
+  ...makeMutableDefaultOptions("title"),
   /**
    * Get the plain text version of the title. Supports mutation.
    */
   plainText() {
     return this.handleAndComposeUsing({
-      handler: value => packPlainText(value),
-      composer: (value) => [{ text: { content: value } }]
-    })
-  }
-}
+      handler: (value) => packPlainText(value),
+      composer: (value) => [{ text: { content: value } }],
+    });
+  },
+};
 /**
  * Define a title property.
  */
@@ -793,14 +852,14 @@ export function title() {
 }
 
 const urlOptions = {
-  ...makeMutableDefaultOptions('url'),
+  ...makeMutableDefaultOptions("url"),
   /**
    * Get the url string, default to empty string. Supports mutation.
    */
   string() {
-    return this.rawWithDefault('');
-  }
-}
+    return this.rawWithDefault("");
+  },
+};
 /**
  * Define an url property.
  */
@@ -809,25 +868,25 @@ export function url() {
 }
 
 const uniqueIdOptions = {
-  ...makeDefaultOptions('unique_id'),
+  ...makeDefaultOptions("unique_id"),
   /**
    * Get the number of the unique id. Does not support mutation.
    */
   number() {
-    return this.handleUsing(value => value.number!);
+    return this.handleUsing((value) => value.number!);
   },
   /**
    * Get the string of the unique id with a prefix, same as how it is displayed in Notion. Does not support mutation.
    */
   stringWithPrefix() {
-    return this.handleUsing(value => {
+    return this.handleUsing((value) => {
       if (value.prefix) {
-        return value.prefix + '-' + value.number!.toString();
+        return value.prefix + "-" + value.number!.toString();
       }
       return value.number!.toString();
     });
-  }
-}
+  },
+};
 /**
  * Define a unique_id property.
  */
@@ -836,8 +895,8 @@ export function unique_id() {
 }
 
 const verificationOptions = {
-  ...makeDefaultOptions('verification')
-}
+  ...makeDefaultOptions("verification"),
+};
 /**
  * Define a verification property.
  */

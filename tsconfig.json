@@ -12,7 +12,7 @@
 
     "strict": true,
     "skipLibCheck": true,
-    "outDir": "build",
+    "outDir": "build"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*"]
 }

@@ -12,6 +12,7 @@
     "build"
   ],
   "devDependencies": {
+    "@types/bun": "^1.3.3",
     "encoding": "^0.1.13",
     "typescript": "^5.4.5"
   },
