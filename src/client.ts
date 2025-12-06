@@ -6,7 +6,12 @@ import type {
   QueryDataSourceParameters,
   UpdatePageParameters,
 } from "@notionhq/client/build/src/api-endpoints";
-import { Client, collectPaginatedAPI, isFullPage } from "@notionhq/client";
+import {
+  Client,
+  collectPaginatedAPI,
+  isFullBlock,
+  isFullPage,
+} from "@notionhq/client";
 import type {
   DBInfer,
   DBMutateInfer,
@@ -156,7 +161,7 @@ type NotionTokenOptions = {
 };
 type NotionClientOptions = {
   /**
-   * The Notion API client. Make sure the version is set to '2022-06-28'.
+   * The Notion API client. Make sure the version is set to '2025-09-03'.
    */
   notionClient: Client;
 };
@@ -205,7 +210,7 @@ function createClient<DBS extends DBSchemasType>(
   } else if ("notionToken" in options) {
     return new Client({
       auth: options.notionToken,
-      notionVersion: "2022-06-28",
+      notionVersion: "2025-09-03",
     });
   } else {
     throw Error("At least one of notionToken or notionClient must be provided");
@@ -239,11 +244,11 @@ function createUseDatabaseFunction<DBS extends DBSchemasType>(
     const dataSourceIdMap = new Map<string, string>();
 
     const fillDatabaseIdMap = async () => {
-      const { results: databases } = await client.blocks.children.list({
+      const databases = await collectPaginatedAPI(client.blocks.children.list, {
         block_id: pageId,
       });
       for (const database of databases) {
-        if ("type" in database && database.type === "child_database") {
+        if (isFullBlock(database) && database.type === "child_database") {
           const result = await client.databases.retrieve({
             database_id: database.id,
           });
