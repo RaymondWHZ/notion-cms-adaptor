@@ -53,6 +53,7 @@ export function convertNotionImage(pageId: string, preSignedUrl: string) {
 
 export interface DefaultPropertyDef<T extends PropertyTypeEnum> {
   type: T;
+  propertyName?: string;
   handler: ValueHandler<T, ValueType<T>>;
   raw(): PropertyDef<T, ValueType<T>>;
   rawWithDefault(
@@ -63,9 +64,11 @@ export interface DefaultPropertyDef<T extends PropertyTypeEnum> {
 
 const makeDefaultOptions = <T extends PropertyTypeEnum>(
   type: T,
+  propertyName?: string,
 ): DefaultPropertyDef<T> => {
   const valueToRaw: PropertyDef<T, ValueType<T>> = {
     type,
+    propertyName,
     handler: (value) => value,
   };
   return {
@@ -88,6 +91,7 @@ const makeDefaultOptions = <T extends PropertyTypeEnum>(
     rawWithDefault(defaultValue) {
       return {
         type,
+        propertyName,
         handler: (value) => value ?? defaultValue,
       };
     },
@@ -98,6 +102,7 @@ const makeDefaultOptions = <T extends PropertyTypeEnum>(
     handleUsing(handler) {
       return {
         type,
+        propertyName,
         handler,
       };
     },
@@ -106,6 +111,7 @@ const makeDefaultOptions = <T extends PropertyTypeEnum>(
 
 export interface DefaultMutPropertyDef<T extends MutPropertyTypeEnum> {
   type: T;
+  propertyName?: string;
   handler: ValueHandler<T, ValueType<T>>;
   composer: ValueComposer<T, MutValueType<T>>;
   raw(): MutPropertyDef<T, ValueType<T>, MutValueType<T>>;
@@ -123,9 +129,11 @@ export interface DefaultMutPropertyDef<T extends MutPropertyTypeEnum> {
 
 const makeMutableDefaultOptions = <T extends MutPropertyTypeEnum>(
   type: T,
+  propertyName?: string,
 ): DefaultMutPropertyDef<T> => {
   const valueToRaw: MutPropertyDef<T, ValueType<T>, MutValueType<T>> = {
     type,
+    propertyName,
     handler: (value) => value,
     composer: (value) => value,
   };
@@ -149,6 +157,7 @@ const makeMutableDefaultOptions = <T extends MutPropertyTypeEnum>(
     rawWithDefault(defaultValue) {
       return {
         type,
+        propertyName,
         handler: (value) => value ?? defaultValue,
         composer: (value) => value,
       };
@@ -160,6 +169,7 @@ const makeMutableDefaultOptions = <T extends MutPropertyTypeEnum>(
     handleUsing(handler) {
       return {
         type,
+        propertyName,
         handler,
         composer: (value) => value,
       };
@@ -172,6 +182,7 @@ const makeMutableDefaultOptions = <T extends MutPropertyTypeEnum>(
     handleAndComposeUsing({ handler, composer }) {
       return {
         type,
+        propertyName,
         handler,
         composer,
       };
@@ -206,63 +217,62 @@ export interface DefaultCheckboxDef extends DefaultMutPropertyDef<"checkbox"> {
   boolean(): MutPropertyDef<"checkbox", boolean>;
 }
 
-const checkboxOptions: DefaultCheckboxDef = {
-  ...makeMutableDefaultOptions("checkbox"),
-  /**
-   * Convert the value to a boolean. Supports mutation.
-   */
-  boolean() {
-    return this.raw();
-  },
-};
-
 /**
  * Define a checkbox property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function checkbox() {
-  return checkboxOptions;
+export function checkbox(propertyName?: string): DefaultCheckboxDef {
+  return {
+    ...makeMutableDefaultOptions("checkbox", propertyName),
+    /**
+     * Convert the value to a boolean. Supports mutation.
+     */
+    boolean() {
+      return this.raw();
+    },
+  };
 }
 
 export interface DefaultCreatedByDef extends DefaultPropertyDef<"created_by"> {
   name(): PropertyDef<"created_by", string>;
 }
 
-const createdByOptions: DefaultCreatedByDef = {
-  ...makeDefaultOptions("created_by"),
-  /**
-   * Get the name of the creator. Does not support mutation.
-   */
-  name() {
-    return this.handleUsing((value) =>
-      "name" in value ? (value.name ?? "") : "",
-    );
-  },
-};
 /**
  * Define a created_by property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function created_by() {
-  return createdByOptions;
+export function created_by(propertyName?: string): DefaultCreatedByDef {
+  return {
+    ...makeDefaultOptions("created_by", propertyName),
+    /**
+     * Get the name of the creator. Does not support mutation.
+     */
+    name() {
+      return this.handleUsing((value) =>
+        "name" in value ? (value.name ?? "") : "",
+      );
+    },
+  };
 }
 
 export interface DefaultCreatedTimeDef extends DefaultPropertyDef<"created_time"> {
   timeString(): PropertyDef<"created_time", string>;
 }
 
-const createdTimeOptions: DefaultCreatedTimeDef = {
-  ...makeDefaultOptions("created_time"),
-  /**
-   * Get the time string of the creation time. Does not support mutation.
-   */
-  timeString() {
-    return this.raw();
-  },
-};
 /**
  * Define a created_time property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function created_time() {
-  return createdTimeOptions;
+export function created_time(propertyName?: string): DefaultCreatedTimeDef {
+  return {
+    ...makeDefaultOptions("created_time", propertyName),
+    /**
+     * Get the time string of the creation time. Does not support mutation.
+     */
+    timeString() {
+      return this.raw();
+    },
+  };
 }
 
 export type DateRange = {
@@ -275,58 +285,57 @@ export interface DefaultDateDef extends DefaultMutPropertyDef<"date"> {
   dateRange(): MutPropertyDef<"date", DateRange>;
 }
 
-const dateOptions: DefaultDateDef = {
-  ...makeMutableDefaultOptions("date"),
-  /**
-   * Get the start date of the date range, defaults to empty string. Supports mutation.
-   */
-  startDate() {
-    return this.handleAndComposeUsing({
-      handler: (value) => value?.start ?? "",
-      composer: (value) => ({ start: value }),
-    });
-  },
-  /**
-   * Get the date range. Supports mutation.
-   */
-  dateRange() {
-    return this.handleAndComposeUsing<DateRange>({
-      handler: (value) => {
-        return {
-          start: value?.start ?? "",
-          end: value?.end ?? "",
-        };
-      },
-      composer: (value) => value,
-    });
-  },
-};
-
 /**
  * Define a date property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function date() {
-  return dateOptions;
+export function date(propertyName?: string): DefaultDateDef {
+  return {
+    ...makeMutableDefaultOptions("date", propertyName),
+    /**
+     * Get the start date of the date range, defaults to empty string. Supports mutation.
+     */
+    startDate() {
+      return this.handleAndComposeUsing({
+        handler: (value) => value?.start ?? "",
+        composer: (value) => ({ start: value }),
+      });
+    },
+    /**
+     * Get the date range. Supports mutation.
+     */
+    dateRange() {
+      return this.handleAndComposeUsing<DateRange>({
+        handler: (value) => {
+          return {
+            start: value?.start ?? "",
+            end: value?.end ?? "",
+          };
+        },
+        composer: (value) => value,
+      });
+    },
+  };
 }
 
 export interface DefaultEmailDef extends DefaultMutPropertyDef<"email"> {
   string(): MutPropertyDef<"email", string, string | null>;
 }
 
-const emailOptions: DefaultEmailDef = {
-  ...makeMutableDefaultOptions("email"),
-  /**
-   * Get the email string. Supports mutation.
-   */
-  string() {
-    return this.rawWithDefault("");
-  },
-};
 /**
  * Define an email property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function email() {
-  return emailOptions;
+export function email(propertyName?: string): DefaultEmailDef {
+  return {
+    ...makeMutableDefaultOptions("email", propertyName),
+    /**
+     * Get the email string. Supports mutation.
+     */
+    string() {
+      return this.rawWithDefault("");
+    },
+  };
 }
 
 export interface DefaultFilesDef extends DefaultMutPropertyDef<"files"> {
@@ -340,86 +349,86 @@ export interface DefaultFilesDef extends DefaultMutPropertyDef<"files"> {
   >;
 }
 
-const filesOptions: DefaultFilesDef = {
-  ...makeMutableDefaultOptions("files"),
-  /**
-   * Get the urls of the files. Supports mutation using the raw underlying value.
-   */
-  urls() {
-    return this.handleUsing((value) =>
-      value.reduce((acc, file) => {
-        let result: string | undefined = undefined;
-        if ("file" in file) {
-          result = file.file.url;
-        } else if ("external" in file) {
-          result = file.external.url;
-        }
-        if (result === undefined) {
-          return acc;
-        }
-        return acc.concat(result);
-      }, [] as string[]),
-    );
-  },
-  /**
-   * Get the url of the first file. Supports mutation using the raw underlying value.
-   */
-  singleUrl() {
-    return this.handleUsing((value) => {
-      const file = value[0];
-      if (!file) {
-        return "";
-      }
-      if ("file" in file) {
-        return file.file.url;
-      } else if ("external" in file) {
-        return file.external.url;
-      }
-      return "";
-    });
-  },
-  /**
-   * Rewrite the preSignedUrl to use Notion's image optimization service, assuming the preSignedUrl is a Notion image.
-   *
-   * This is not an official API and may break at any time. Use at your own risk.
-   */
-  notionImageUrls() {
-    return this.handleUsing((value, { page: { id } }) =>
-      value.reduce((acc, file) => {
-        let result: string | undefined = undefined;
-        if ("file" in file) {
-          result = convertNotionImage(id, file.file.url);
-        }
-        if (result === undefined) {
-          return acc;
-        }
-        return acc.concat(result);
-      }, [] as string[]),
-    );
-  },
-  /**
-   * Rewrite the preSignedUrl of the first image to use Notion's image optimization service, assuming the preSignedUrl is a Notion image.
-   *
-   * This is not an official API and may break at any time. Use at your own risk.
-   */
-  singleNotionImageUrl() {
-    return this.handleUsing((value, { page: { id } }) => {
-      const file = value[0];
-      if (!file) {
-        return "";
-      }
-      if ("file" in file) {
-        return convertNotionImage(id, file.file.url);
-      }
-      return "";
-    });
-  },
-};
 /**
  * Define a files property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function files() {
-  return filesOptions;
+export function files(propertyName?: string): DefaultFilesDef {
+  return {
+    ...makeMutableDefaultOptions("files", propertyName),
+    /**
+     * Get the urls of the files. Supports mutation using the raw underlying value.
+     */
+    urls() {
+      return this.handleUsing((value) =>
+        value.reduce((acc, file) => {
+          let result: string | undefined = undefined;
+          if ("file" in file) {
+            result = file.file.url;
+          } else if ("external" in file) {
+            result = file.external.url;
+          }
+          if (result === undefined) {
+            return acc;
+          }
+          return acc.concat(result);
+        }, [] as string[]),
+      );
+    },
+    /**
+     * Get the url of the first file. Supports mutation using the raw underlying value.
+     */
+    singleUrl() {
+      return this.handleUsing((value) => {
+        const file = value[0];
+        if (!file) {
+          return "";
+        }
+        if ("file" in file) {
+          return file.file.url;
+        } else if ("external" in file) {
+          return file.external.url;
+        }
+        return "";
+      });
+    },
+    /**
+     * Rewrite the preSignedUrl to use Notion's image optimization service, assuming the preSignedUrl is a Notion image.
+     *
+     * This is not an official API and may break at any time. Use at your own risk.
+     */
+    notionImageUrls() {
+      return this.handleUsing((value, { page: { id } }) =>
+        value.reduce((acc, file) => {
+          let result: string | undefined = undefined;
+          if ("file" in file) {
+            result = convertNotionImage(id, file.file.url);
+          }
+          if (result === undefined) {
+            return acc;
+          }
+          return acc.concat(result);
+        }, [] as string[]),
+      );
+    },
+    /**
+     * Rewrite the preSignedUrl of the first image to use Notion's image optimization service, assuming the preSignedUrl is a Notion image.
+     *
+     * This is not an official API and may break at any time. Use at your own risk.
+     */
+    singleNotionImageUrl() {
+      return this.handleUsing((value, { page: { id } }) => {
+        const file = value[0];
+        if (!file) {
+          return "";
+        }
+        if ("file" in file) {
+          return convertNotionImage(id, file.file.url);
+        }
+        return "";
+      });
+    },
+  };
 }
 
 export interface DefaultFormulaDef extends DefaultPropertyDef<"formula"> {
@@ -429,106 +438,108 @@ export interface DefaultFormulaDef extends DefaultPropertyDef<"formula"> {
   dateRange(): PropertyDef<"formula", DateRange>;
 }
 
-const formulaOptions: DefaultFormulaDef = {
-  ...makeDefaultOptions("formula"),
-  /**
-   * Convert the value to string. Does not support mutation.
-   */
-  string() {
-    return this.handleUsing((value) => {
-      if (value.type === "string") {
-        return value.string ?? "";
-      } else if (value.type === "number") {
-        return value.number?.toString() ?? "";
-      } else if (value.type === "boolean") {
-        return value.boolean ? "true" : "false";
-      } else if (value.type === "date") {
-        return value.date?.start ?? "";
-      }
-      return "";
-    });
-  },
-  /**
-   * If the value is boolean and is true, return true; otherwise return false. Does not support mutation.
-   */
-  booleanDefaultFalse() {
-    return this.handleUsing((value) =>
-      value.type === "boolean" ? (value.boolean ?? false) : false,
-    );
-  },
-  /**
-   * If the value is number, return the number; otherwise return 0. Does not support mutation.
-   */
-  numberDefaultZero() {
-    return this.handleUsing((value) =>
-      value.type === "number" ? (value.number ?? 0) : 0,
-    );
-  },
-  /**
-   * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
-   */
-  dateRange() {
-    return this.handleUsing((value) => {
-      if (value.type === "date") {
-        return {
-          start: value.date?.start ?? "",
-          end: value.date?.end ?? "",
-        };
-      }
-      return {
-        start: "",
-        end: "",
-      };
-    });
-  },
-};
 /**
  * Define a formula property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function formula() {
-  return formulaOptions;
+export function formula(propertyName?: string): DefaultFormulaDef {
+  return {
+    ...makeDefaultOptions("formula", propertyName),
+    /**
+     * Convert the value to string. Does not support mutation.
+     */
+    string() {
+      return this.handleUsing((value) => {
+        if (value.type === "string") {
+          return value.string ?? "";
+        } else if (value.type === "number") {
+          return value.number?.toString() ?? "";
+        } else if (value.type === "boolean") {
+          return value.boolean ? "true" : "false";
+        } else if (value.type === "date") {
+          return value.date?.start ?? "";
+        }
+        return "";
+      });
+    },
+    /**
+     * If the value is boolean and is true, return true; otherwise return false. Does not support mutation.
+     */
+    booleanDefaultFalse() {
+      return this.handleUsing((value) =>
+        value.type === "boolean" ? (value.boolean ?? false) : false,
+      );
+    },
+    /**
+     * If the value is number, return the number; otherwise return 0. Does not support mutation.
+     */
+    numberDefaultZero() {
+      return this.handleUsing((value) =>
+        value.type === "number" ? (value.number ?? 0) : 0,
+      );
+    },
+    /**
+     * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
+     */
+    dateRange() {
+      return this.handleUsing((value) => {
+        if (value.type === "date") {
+          return {
+            start: value.date?.start ?? "",
+            end: value.date?.end ?? "",
+          };
+        }
+        return {
+          start: "",
+          end: "",
+        };
+      });
+    },
+  };
 }
 
 export interface DefaultLastEditedByDef extends DefaultPropertyDef<"last_edited_by"> {
   name(): PropertyDef<"last_edited_by", string>;
 }
 
-const lastEditedByOptions: DefaultLastEditedByDef = {
-  ...makeDefaultOptions("last_edited_by"),
-  /**
-   * Get the name of the last editor. Does not support mutation.
-   */
-  name() {
-    return this.handleUsing((value) =>
-      "name" in value ? (value.name ?? "") : "",
-    );
-  },
-};
 /**
  * Define a last_edited_by property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function last_edited_by() {
-  return lastEditedByOptions;
+export function last_edited_by(propertyName?: string): DefaultLastEditedByDef {
+  return {
+    ...makeDefaultOptions("last_edited_by", propertyName),
+    /**
+     * Get the name of the last editor. Does not support mutation.
+     */
+    name() {
+      return this.handleUsing((value) =>
+        "name" in value ? (value.name ?? "") : "",
+      );
+    },
+  };
 }
 
 export interface DefaultLastEditedTimeDef extends DefaultPropertyDef<"last_edited_time"> {
   timeString(): PropertyDef<"last_edited_time", string>;
 }
 
-const lastEditedTimeOptions: DefaultLastEditedTimeDef = {
-  ...makeDefaultOptions("last_edited_time"),
-  /**
-   * Get the time string of the last edit time. Does not support mutation.
-   */
-  timeString() {
-    return this.raw();
-  },
-};
 /**
  * Define a last_edited_time property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function last_edited_time() {
-  return lastEditedTimeOptions;
+export function last_edited_time(
+  propertyName?: string,
+): DefaultLastEditedTimeDef {
+  return {
+    ...makeDefaultOptions("last_edited_time", propertyName),
+    /**
+     * Get the time string of the last edit time. Does not support mutation.
+     */
+    timeString() {
+      return this.raw();
+    },
+  };
 }
 
 export interface DefaultMultiSelectDef extends DefaultMutPropertyDef<"multi_select"> {
@@ -538,112 +549,112 @@ export interface DefaultMultiSelectDef extends DefaultMutPropertyDef<"multi_sele
   ): MutPropertyDef<"multi_select", T[]>;
 }
 
-const multiSelectOptions: DefaultMultiSelectDef = {
-  ...makeMutableDefaultOptions("multi_select"),
-  /**
-   * Get the names of the options. Supports mutation.
-   */
-  strings() {
-    return this.handleAndComposeUsing({
-      handler: (value) => value.map((option) => option.name),
-      composer: (value) => value.map((name) => ({ name })),
-    });
-  },
-  /**
-   * Get the names of the options, validating that they are in the provided list of values. Supports mutation.
-   */
-  stringEnums<T extends string>(
-    ...values: T[]
-  ): MutPropertyDef<"multi_select", T[]> {
-    return this.handleAndComposeUsing({
-      handler: (value) => {
-        const names = value.map((option) => option.name);
-        if (!names.every((name) => values.includes(name as T))) {
-          throw Error("Invalid status");
-        }
-        return names as T[];
-      },
-      composer: (value) => {
-        if (!value.every((name) => values.includes(name))) {
-          throw Error("Invalid status");
-        }
-        return value.map((name) => ({ name }));
-      },
-    });
-  },
-};
 /**
  * Define a multi_select property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function multi_select() {
-  return multiSelectOptions;
+export function multi_select(propertyName?: string): DefaultMultiSelectDef {
+  return {
+    ...makeMutableDefaultOptions("multi_select", propertyName),
+    /**
+     * Get the names of the options. Supports mutation.
+     */
+    strings() {
+      return this.handleAndComposeUsing({
+        handler: (value) => value.map((option) => option.name),
+        composer: (value) => value.map((name) => ({ name })),
+      });
+    },
+    /**
+     * Get the names of the options, validating that they are in the provided list of values. Supports mutation.
+     */
+    stringEnums<T extends string>(
+      ...values: T[]
+    ): MutPropertyDef<"multi_select", T[]> {
+      return this.handleAndComposeUsing({
+        handler: (value) => {
+          const names = value.map((option) => option.name);
+          if (!names.every((name) => values.includes(name as T))) {
+            throw Error("Invalid status");
+          }
+          return names as T[];
+        },
+        composer: (value) => {
+          if (!value.every((name) => values.includes(name))) {
+            throw Error("Invalid status");
+          }
+          return value.map((name) => ({ name }));
+        },
+      });
+    },
+  };
 }
 
 export interface DefaultNumberDef extends DefaultMutPropertyDef<"number"> {
   numberDefaultZero(): MutPropertyDef<"number", number, number | null>;
 }
 
-const numberOptions: DefaultNumberDef = {
-  ...makeMutableDefaultOptions("number"),
-  /**
-   * If the value is number, return the number; otherwise return 0. Supports mutation.
-   */
-  numberDefaultZero() {
-    return this.rawWithDefault(0);
-  },
-};
 /**
  * Define a number property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function number() {
-  return numberOptions;
+export function number(propertyName?: string): DefaultNumberDef {
+  return {
+    ...makeMutableDefaultOptions("number", propertyName),
+    /**
+     * If the value is number, return the number; otherwise return 0. Supports mutation.
+     */
+    numberDefaultZero() {
+      return this.rawWithDefault(0);
+    },
+  };
 }
 
 export interface DefaultPeopleDef extends DefaultMutPropertyDef<"people"> {
   names(): MutPropertyDef<"people", string[], MutValueType<"people">>;
 }
 
-const peopleOptions: DefaultPeopleDef = {
-  ...makeMutableDefaultOptions("people"),
-  /**
-   * Get the names of the people. Supports mutation using the raw underlying value.
-   */
-  names() {
-    return this.handleUsing((value) =>
-      value.reduce((acc, person) => {
-        if ("name" in person) {
-          return acc.concat(person.name ?? "");
-        }
-        return acc;
-      }, [] as string[]),
-    );
-  },
-};
 /**
  * Define a people property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function people() {
-  return peopleOptions;
+export function people(propertyName?: string): DefaultPeopleDef {
+  return {
+    ...makeMutableDefaultOptions("people", propertyName),
+    /**
+     * Get the names of the people. Supports mutation using the raw underlying value.
+     */
+    names() {
+      return this.handleUsing((value) =>
+        value.reduce((acc, person) => {
+          if ("name" in person) {
+            return acc.concat(person.name ?? "");
+          }
+          return acc;
+        }, [] as string[]),
+      );
+    },
+  };
 }
 
 export interface DefaultPhoneNumberDef extends DefaultMutPropertyDef<"phone_number"> {
   string(): MutPropertyDef<"phone_number", string, string | null>;
 }
 
-const phoneNumberOptions: DefaultPhoneNumberDef = {
-  ...makeMutableDefaultOptions("phone_number"),
-  /**
-   * Get the phone number string, default to empty string. Supports mutation.
-   */
-  string() {
-    return this.rawWithDefault("");
-  },
-};
 /**
  * Define a phone_number property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function phone_number() {
-  return phoneNumberOptions;
+export function phone_number(propertyName?: string): DefaultPhoneNumberDef {
+  return {
+    ...makeMutableDefaultOptions("phone_number", propertyName),
+    /**
+     * Get the phone number string, default to empty string. Supports mutation.
+     */
+    string() {
+      return this.rawWithDefault("");
+    },
+  };
 }
 
 export interface RollupMappingItem {
@@ -669,103 +680,102 @@ export interface DefaultRelationDef extends DefaultMutPropertyDef<"relation"> {
   ): MutPropertyDef<"relation", InferObject<M>[], string[]>;
 }
 
-const relationOptions: DefaultRelationDef = {
-  ...makeMutableDefaultOptions("relation"),
-  /**
-   * Get the ids of the relations. Supports mutation.
-   */
-  ids() {
-    return this.handleAndComposeUsing({
-      handler: (value) => value.map((relation) => relation.id),
-      composer: (value) => value.map((id) => ({ id })),
-    });
-  },
-  /**
-   * Get the first id of the relations. Supports mutation.
-   */
-  singleId() {
-    return this.handleAndComposeUsing({
-      handler: (value) => value[0].id,
-      composer: (value) => [{ id: value }],
-    });
-  },
-  /**
-   * Construct a list of objects from the relations using related rollup fields. Supports mutation using a list of ids.
-   *
-   * @param mapping
-   */
-  objects<M extends RollupMapping>(mapping: M) {
-    return this.handleAndComposeUsing({
-      handler: (value, { page }) => {
-        const { properties } = page;
-        return value.map(({ id }, index) => {
-          const mappedObject = {} as InferObject<M>;
-          Object.entries(mapping).forEach(([key, item]) => {
-            if ("rollupField" in item) {
-              const { rollupField, def } = item;
-              const rollupProperty = properties[rollupField];
-              if (
-                !rollupProperty ||
-                rollupProperty.type !== "rollup" ||
-                rollupProperty.rollup.type !== "array"
-              ) {
-                throw Error("Invalid rollup field: " + rollupField);
-              }
-              const property = rollupProperty.rollup.array[index];
-              if (property.type !== def.type) {
-                throw Error(
-                  `Property ${rollupField} type mismatch: ${property.type} !== ${def.type}`,
-                );
-              }
-              // @ts-expect-error
-              const value = property[def.type] as ValueType<typeof def.type>;
-              const handler = def.handler as ValueHandler<typeof def.type>;
-              // @ts-expect-error
-              mappedObject[key] = handler(value, {});
-            } else {
-              if (item.type !== "__id") {
-                throw Error("Invalid relation mapping: " + key);
-              }
-              // @ts-expect-error
-              mappedObject[key] = item.handler(id, {});
-            }
-          });
-          return mappedObject;
-        });
-      },
-      composer: (value: string[]) => value.map((id) => ({ id })),
-    });
-  },
-};
-
 /**
  * Define a relation property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function relation() {
-  return relationOptions;
+export function relation(propertyName?: string): DefaultRelationDef {
+  return {
+    ...makeMutableDefaultOptions("relation", propertyName),
+    /**
+     * Get the ids of the relations. Supports mutation.
+     */
+    ids() {
+      return this.handleAndComposeUsing({
+        handler: (value) => value.map((relation) => relation.id),
+        composer: (value) => value.map((id) => ({ id })),
+      });
+    },
+    /**
+     * Get the first id of the relations. Supports mutation.
+     */
+    singleId() {
+      return this.handleAndComposeUsing({
+        handler: (value) => value[0].id,
+        composer: (value) => [{ id: value }],
+      });
+    },
+    /**
+     * Construct a list of objects from the relations using related rollup fields. Supports mutation using a list of ids.
+     *
+     * @param mapping
+     */
+    objects<M extends RollupMapping>(mapping: M) {
+      return this.handleAndComposeUsing({
+        handler: (value, { page }) => {
+          const { properties } = page;
+          return value.map(({ id }, index) => {
+            const mappedObject = {} as InferObject<M>;
+            Object.entries(mapping).forEach(([key, item]) => {
+              if ("rollupField" in item) {
+                const { rollupField, def } = item;
+                const rollupProperty = properties[rollupField];
+                if (
+                  !rollupProperty ||
+                  rollupProperty.type !== "rollup" ||
+                  rollupProperty.rollup.type !== "array"
+                ) {
+                  throw Error("Invalid rollup field: " + rollupField);
+                }
+                const property = rollupProperty.rollup.array[index];
+                if (property.type !== def.type) {
+                  throw Error(
+                    `Property ${rollupField} type mismatch: ${property.type} !== ${def.type}`,
+                  );
+                }
+                // @ts-expect-error
+                const value = property[def.type] as ValueType<typeof def.type>;
+                const handler = def.handler as ValueHandler<typeof def.type>;
+                // @ts-expect-error
+                mappedObject[key] = handler(value, {});
+              } else {
+                if (item.type !== "__id") {
+                  throw Error("Invalid relation mapping: " + key);
+                }
+                // @ts-expect-error
+                mappedObject[key] = item.handler(id, {});
+              }
+            });
+            return mappedObject;
+          });
+        },
+        composer: (value: string[]) => value.map((id) => ({ id })),
+      });
+    },
+  };
 }
 
 export interface DefaultRichTextDef extends DefaultMutPropertyDef<"rich_text"> {
   plainText(): MutPropertyDef<"rich_text", string>;
 }
 
-const richTextOptions: DefaultRichTextDef = {
-  ...makeMutableDefaultOptions("rich_text"),
-  /**
-   * Get the plain text version of the field. Supports mutation.
-   */
-  plainText() {
-    return this.handleAndComposeUsing({
-      handler: (value) => packPlainText(value),
-      composer: (value) => [{ text: { content: value } }],
-    });
-  },
-};
 /**
  * Define a rich_text property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function rich_text() {
-  return richTextOptions;
+export function rich_text(propertyName?: string): DefaultRichTextDef {
+  return {
+    ...makeMutableDefaultOptions("rich_text", propertyName),
+    /**
+     * Get the plain text version of the field. Supports mutation.
+     */
+    plainText() {
+      return this.handleAndComposeUsing({
+        handler: (value) => packPlainText(value),
+        composer: (value) => [{ text: { content: value } }],
+      });
+    },
+  };
 }
 
 export type RollupArrayType = Extract<
@@ -785,68 +795,70 @@ export interface DefaultRollupDef extends DefaultPropertyDef<"rollup"> {
   ): PropertyDef<"rollup", R>;
 }
 
-const rollupOptions: DefaultRollupDef = {
-  ...makeDefaultOptions("rollup"),
-  /**
-   * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
-   */
-  dateRange() {
-    return this.handleUsing((value) => {
-      if (value.type === "date") {
-        return {
-          start: value.date?.start ?? "",
-          end: value.date?.end ?? "",
-        };
-      }
-      return {
-        start: "",
-        end: "",
-      };
-    });
-  },
-  /**
-   * If the value is number, return the number; otherwise return 0. Does not support mutation.
-   */
-  numberDefaultZero() {
-    return this.handleUsing((value) => {
-      if (value.type === "number") {
-        return value.number ?? 0;
-      }
-      return 0;
-    });
-  },
-  /**
-   * If the value is an array, handle the first item using a custom handler, ignoring the rest; otherwise throw an error. Does not support mutation.
-   *
-   * @param handler The custom handler
-   */
-  handleSingleUsing<R>(handler: (value: RollupArrayItemType | undefined) => R) {
-    return this.handleUsing((value) => {
-      if (value.type === "array") {
-        return handler(value.array[0]);
-      }
-      throw Error("Invalid rollup type");
-    });
-  },
-  /**
-   * If the value is an array, handle the array using a custom handler; otherwise throw an error. Does not support mutation.
-   *
-   * @param handler The custom handler
-   */
-  handleArrayUsing<R>(handler: (value: RollupArrayType) => R) {
-    return this.handleUsing((value) => {
-      if (value.type === "array") {
-        return handler(value.array);
-      }
-      throw Error("Invalid rollup type");
-    });
-  },
-};
 /**
  * Define a rollup property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function rollup() {
-  return rollupOptions;
+export function rollup(propertyName?: string): DefaultRollupDef {
+  return {
+    ...makeDefaultOptions("rollup", propertyName),
+    /**
+     * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
+     */
+    dateRange() {
+      return this.handleUsing((value) => {
+        if (value.type === "date") {
+          return {
+            start: value.date?.start ?? "",
+            end: value.date?.end ?? "",
+          };
+        }
+        return {
+          start: "",
+          end: "",
+        };
+      });
+    },
+    /**
+     * If the value is number, return the number; otherwise return 0. Does not support mutation.
+     */
+    numberDefaultZero() {
+      return this.handleUsing((value) => {
+        if (value.type === "number") {
+          return value.number ?? 0;
+        }
+        return 0;
+      });
+    },
+    /**
+     * If the value is an array, handle the first item using a custom handler, ignoring the rest; otherwise throw an error. Does not support mutation.
+     *
+     * @param handler The custom handler
+     */
+    handleSingleUsing<R>(
+      handler: (value: RollupArrayItemType | undefined) => R,
+    ) {
+      return this.handleUsing((value) => {
+        if (value.type === "array") {
+          return handler(value.array[0]);
+        }
+        throw Error("Invalid rollup type");
+      });
+    },
+    /**
+     * If the value is an array, handle the array using a custom handler; otherwise throw an error. Does not support mutation.
+     *
+     * @param handler The custom handler
+     */
+    handleArrayUsing<R>(handler: (value: RollupArrayType) => R) {
+      return this.handleUsing((value) => {
+        if (value.type === "array") {
+          return handler(value.array);
+        }
+        throw Error("Invalid rollup type");
+      });
+    },
+  };
 }
 
 export interface DefaultSelectDef extends DefaultMutPropertyDef<"select"> {
@@ -856,45 +868,45 @@ export interface DefaultSelectDef extends DefaultMutPropertyDef<"select"> {
   ): MutPropertyDef<"select", T>;
 }
 
-const selectOptions: DefaultSelectDef = {
-  ...makeMutableDefaultOptions("select"),
-  /**
-   * Get the name of the option. Supports mutation.
-   */
-  optionalString() {
-    return this.handleAndComposeUsing({
-      handler: (value) => value?.name,
-      composer: (value) => (value ? { name: value } : null),
-    });
-  },
-  /**
-   * Get the name of the option, validating that it is in the provided list of values. Supports mutation.
-   */
-  stringEnum<T extends string | undefined>(
-    ...values: T[]
-  ): MutPropertyDef<"select", T> {
-    return this.handleAndComposeUsing({
-      handler: (value) => {
-        const name = value?.name;
-        if (!values.includes(name as T)) {
-          throw Error("Invalid status: " + name);
-        }
-        return name as T;
-      },
-      composer: (value) => {
-        if (!values.includes(value)) {
-          throw Error("Invalid status: " + value);
-        }
-        return value ? { name: value } : null;
-      },
-    });
-  },
-};
 /**
  * Define a select property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function select() {
-  return selectOptions;
+export function select(propertyName?: string): DefaultSelectDef {
+  return {
+    ...makeMutableDefaultOptions("select", propertyName),
+    /**
+     * Get the name of the option. Supports mutation.
+     */
+    optionalString() {
+      return this.handleAndComposeUsing({
+        handler: (value) => value?.name,
+        composer: (value) => (value ? { name: value } : null),
+      });
+    },
+    /**
+     * Get the name of the option, validating that it is in the provided list of values. Supports mutation.
+     */
+    stringEnum<T extends string | undefined>(
+      ...values: T[]
+    ): MutPropertyDef<"select", T> {
+      return this.handleAndComposeUsing({
+        handler: (value) => {
+          const name = value?.name;
+          if (!values.includes(name as T)) {
+            throw Error("Invalid status: " + name);
+          }
+          return name as T;
+        },
+        composer: (value) => {
+          if (!values.includes(value)) {
+            throw Error("Invalid status: " + value);
+          }
+          return value ? { name: value } : null;
+        },
+      });
+    },
+  };
 }
 
 export interface DefaultStatusDef extends DefaultMutPropertyDef<"status"> {
@@ -902,86 +914,86 @@ export interface DefaultStatusDef extends DefaultMutPropertyDef<"status"> {
   stringEnum<T extends string>(...values: T[]): MutPropertyDef<"status", T>;
 }
 
-const statusOptions: DefaultStatusDef = {
-  ...makeMutableDefaultOptions("status"),
-  /**
-   * Get the name of the status. Supports mutation.
-   */
-  string() {
-    return this.handleAndComposeUsing({
-      handler: (value) => value?.name ?? "",
-      composer: (value) => ({ name: value }),
-    });
-  },
-  /**
-   * Get the name of the status, validating that it is in the provided list of values. Supports mutation.
-   */
-  stringEnum<T extends string>(...values: T[]) {
-    return this.handleAndComposeUsing({
-      handler: (value) => {
-        const name = value?.name;
-        if (!name || !values.includes(name as T)) {
-          throw Error("Invalid status: " + name);
-        }
-        return name as T;
-      },
-      composer: (value: T) => {
-        if (!value || !values.includes(value)) {
-          throw Error("Invalid status: " + value);
-        }
-        return { name: value };
-      },
-    });
-  },
-};
 /**
  * Define a status property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function status() {
-  return statusOptions;
+export function status(propertyName?: string): DefaultStatusDef {
+  return {
+    ...makeMutableDefaultOptions("status", propertyName),
+    /**
+     * Get the name of the status. Supports mutation.
+     */
+    string() {
+      return this.handleAndComposeUsing({
+        handler: (value) => value?.name ?? "",
+        composer: (value) => ({ name: value }),
+      });
+    },
+    /**
+     * Get the name of the status, validating that it is in the provided list of values. Supports mutation.
+     */
+    stringEnum<T extends string>(...values: T[]) {
+      return this.handleAndComposeUsing({
+        handler: (value) => {
+          const name = value?.name;
+          if (!name || !values.includes(name as T)) {
+            throw Error("Invalid status: " + name);
+          }
+          return name as T;
+        },
+        composer: (value: T) => {
+          if (!value || !values.includes(value)) {
+            throw Error("Invalid status: " + value);
+          }
+          return { name: value };
+        },
+      });
+    },
+  };
 }
 
 export interface DefaultTitleDef extends DefaultMutPropertyDef<"title"> {
   plainText(): MutPropertyDef<"title", string>;
 }
 
-const titleOptions: DefaultTitleDef = {
-  ...makeMutableDefaultOptions("title"),
-  /**
-   * Get the plain text version of the title. Supports mutation.
-   */
-  plainText() {
-    return this.handleAndComposeUsing({
-      handler: (value) => packPlainText(value),
-      composer: (value) => [{ text: { content: value } }],
-    });
-  },
-};
 /**
  * Define a title property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function title() {
-  return titleOptions;
+export function title(propertyName?: string): DefaultTitleDef {
+  return {
+    ...makeMutableDefaultOptions("title", propertyName),
+    /**
+     * Get the plain text version of the title. Supports mutation.
+     */
+    plainText() {
+      return this.handleAndComposeUsing({
+        handler: (value) => packPlainText(value),
+        composer: (value) => [{ text: { content: value } }],
+      });
+    },
+  };
 }
 
 export interface DefaultUrlDef extends DefaultMutPropertyDef<"url"> {
   string(): MutPropertyDef<"url", string, string | null>;
 }
 
-const urlOptions: DefaultUrlDef = {
-  ...makeMutableDefaultOptions("url"),
-  /**
-   * Get the url string, default to empty string. Supports mutation.
-   */
-  string() {
-    return this.rawWithDefault("");
-  },
-};
 /**
  * Define an url property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function url() {
-  return urlOptions;
+export function url(propertyName?: string): DefaultUrlDef {
+  return {
+    ...makeMutableDefaultOptions("url", propertyName),
+    /**
+     * Get the url string, default to empty string. Supports mutation.
+     */
+    string() {
+      return this.rawWithDefault("");
+    },
+  };
 }
 
 export interface DefaultUniqueIdDef extends DefaultPropertyDef<"unique_id"> {
@@ -989,41 +1001,39 @@ export interface DefaultUniqueIdDef extends DefaultPropertyDef<"unique_id"> {
   stringWithPrefix(): PropertyDef<"unique_id", string>;
 }
 
-const uniqueIdOptions: DefaultUniqueIdDef = {
-  ...makeDefaultOptions("unique_id"),
-  /**
-   * Get the number of the unique id. Does not support mutation.
-   */
-  number() {
-    return this.handleUsing((value) => value.number!);
-  },
-  /**
-   * Get the string of the unique id with a prefix, same as how it is displayed in Notion. Does not support mutation.
-   */
-  stringWithPrefix() {
-    return this.handleUsing((value) => {
-      if (value.prefix) {
-        return value.prefix + "-" + value.number!.toString();
-      }
-      return value.number!.toString();
-    });
-  },
-};
 /**
  * Define a unique_id property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function unique_id() {
-  return uniqueIdOptions;
+export function unique_id(propertyName?: string): DefaultUniqueIdDef {
+  return {
+    ...makeDefaultOptions("unique_id", propertyName),
+    /**
+     * Get the number of the unique id. Does not support mutation.
+     */
+    number() {
+      return this.handleUsing((value) => value.number!);
+    },
+    /**
+     * Get the string of the unique id with a prefix, same as how it is displayed in Notion. Does not support mutation.
+     */
+    stringWithPrefix() {
+      return this.handleUsing((value) => {
+        if (value.prefix) {
+          return value.prefix + "-" + value.number!.toString();
+        }
+        return value.number!.toString();
+      });
+    },
+  };
 }
 
 export type DefaultVerificationDef = DefaultPropertyDef<"verification">;
 
-const verificationOptions: DefaultVerificationDef = {
-  ...makeDefaultOptions("verification"),
-};
 /**
  * Define a verification property.
+ * @param propertyName Optional property name in Notion (if different from TypeScript attribute name)
  */
-export function verification() {
-  return verificationOptions;
+export function verification(propertyName?: string): DefaultVerificationDef {
+  return makeDefaultOptions("verification", propertyName);
 }

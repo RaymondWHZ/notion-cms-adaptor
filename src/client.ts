@@ -65,7 +65,7 @@ async function processRow<T extends DBSchemaType>(
       value = page[rawKey];
     } else {
       // Get page property
-      const name = key.toString();
+      const name = def.propertyName ?? key.toString();
       if (!(name in page.properties)) {
         throw Error(`Property ${name} is not found`);
       }
@@ -139,7 +139,7 @@ function createMutateData<T extends DBSchemaType>(
       // @ts-expect-error
       parameters[key] = composer(value);
     } else {
-      const name = key.toString();
+      const name = def.propertyName ?? key.toString();
       const composer = def.composer as ValueComposer<typeof type>;
       parameters.properties[name] = composer(value);
     }

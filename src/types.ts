@@ -170,6 +170,7 @@ export type ValueComposer<T extends MutPropertyTypeEnum, I = any> = (
  */
 export type PropertyDef<T extends PropertyTypeEnum, R = any> = {
   type: T;
+  propertyName?: string;
   handler: ValueHandler<T, R>;
 };
 /**

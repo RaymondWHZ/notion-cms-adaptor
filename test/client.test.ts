@@ -2,11 +2,13 @@ import { expect, test, spyOn } from "bun:test";
 import { Client } from "@notionhq/client";
 import {
   __id,
+  checkbox,
   createDBSchemas,
   createNotionDBClient,
   multi_select,
   mutableMetadata,
   relation,
+  rich_text,
 } from "../src";
 import {
   PageObjectResponse,
@@ -161,6 +163,94 @@ test("insert", async () => {
   expect(res._id).toBe(TEST_PAGE_ID);
   expect(res.tags).toContain("personal");
   expect(res._in_trash).toBe(true);
+
+  create.mockRestore();
+});
+
+// Test custom property name functionality
+const TEST_CUSTOM_NAME_DB_ID = "1000";
+const TEST_CUSTOM_NAME_PAGE_ID = "1001";
+const TEST_CUSTOM_NAME_PAGE_RESPONSE = {
+  id: TEST_CUSTOM_NAME_PAGE_ID,
+  object: "page",
+  url: "",
+  properties: {
+    // Notion property name is "done" but TypeScript key is "isDone"
+    done: {
+      type: "checkbox",
+      checkbox: true,
+    },
+    // Notion property name is "Description" but TypeScript key is "desc"
+    Description: {
+      type: "rich_text",
+      rich_text: [{ plain_text: "Hello World" }],
+    },
+  },
+  in_trash: false,
+};
+
+const customNameSchema = createDBSchemas({
+  tasks: {
+    _id: __id(),
+    // Use custom property name "done" instead of TypeScript key "isDone"
+    isDone: checkbox("done").boolean(),
+    // Use custom property name "Description" instead of TypeScript key "desc"
+    desc: rich_text("Description").plainText(),
+  },
+});
+
+const customNameClient = createNotionDBClient({
+  notionClient,
+  dbSchemas: customNameSchema,
+  dbMap: {
+    tasks: TEST_CUSTOM_NAME_DB_ID,
+  },
+});
+
+test("query with custom property names", async () => {
+  const query = spyOn(notionClient.databases, "query");
+  query.mockImplementation(async () => {
+    return {
+      results: [TEST_CUSTOM_NAME_PAGE_RESPONSE],
+    } as unknown as QueryDatabaseResponse;
+  });
+
+  const res = await customNameClient.query("tasks");
+  expect(notionClient.databases.query).toBeCalledTimes(1);
+  expect(res).toBeArrayOfSize(1);
+  // TypeScript key is "isDone" but reads from Notion property "done"
+  expect(res[0].isDone).toBe(true);
+  // TypeScript key is "desc" but reads from Notion property "Description"
+  expect(res[0].desc).toBe("Hello World");
+
+  query.mockRestore();
+});
+
+test("insert with custom property names", async () => {
+  const create = spyOn(notionClient.pages, "create");
+  create.mockImplementation(async () => {
+    return TEST_CUSTOM_NAME_PAGE_RESPONSE as unknown as PageObjectResponse;
+  });
+
+  const res = await customNameClient.insertEntry("tasks", {
+    // TypeScript key is "isDone" but should write to Notion property "done"
+    isDone: false,
+    // TypeScript key is "desc" but should write to Notion property "Description"
+    desc: "New task",
+  });
+  expect(notionClient.pages.create).toBeCalledTimes(1);
+  expect(notionClient.pages.create).toBeCalledWith({
+    parent: {
+      database_id: TEST_CUSTOM_NAME_DB_ID,
+    },
+    properties: {
+      // Should use Notion property name "done", not TypeScript key "isDone"
+      done: false,
+      // Should use Notion property name "Description", not TypeScript key "desc"
+      Description: [{ text: { content: "New task" } }],
+    },
+  });
+  expect(res._id).toBe(TEST_CUSTOM_NAME_PAGE_ID);
 
   create.mockRestore();
 });
