@@ -1,21 +1,21 @@
-# Notion-CMS-Adaptor
+# Notion CMS Adaptor
 
-*“The Ultimate Type-Safe Notion Database Toolbox You Need to Use Notion as a Headless CMS”*
+*"The Ultimate Type-Safe Notion Database Toolbox You Need to Use Notion as a Headless CMS"*
 
-# Introduction
+## Introduction
 
-Notion CMS Adaptor aim to provide a convenient way for developers to build website using Notion as a CMS. It solves the most significant obstacle when using Notion as a CMS: type safety and conversion between tedious notion types and native JavaScript types. It provides a clean interface and a bunch of pre-defined handlers for most common conversions. It also supports automatic database discovery and provides convenient query functions that suits the need of a typical CMS.
+Notion CMS Adaptor provides a convenient way for developers to build websites using Notion as a CMS. It solves the most significant obstacle when using Notion as a CMS: type safety and conversion between tedious Notion types and native JavaScript types. It provides a clean interface and a bunch of pre-defined handlers for most common conversions. It also supports automatic database discovery and provides convenient query functions that suit the needs of a typical CMS.
 
-# Features
+## Features
 
-- **📋 Standard**: built on top of official JavaScript SDK provided by Notion
-- **🚚 Straightforward type-safety**: define Notion types and conversion rules, leave the framework to infer types for you
-- **🔎 Auto-discovery**: give the framework only the id of the root page, it will discover all databases reside under it
-- **📦 Minimal**: only necessary wrap around underlying Notion API while exposing necessary official structures, like RichTextResponse
-- **🏂 Flexible**: framework comes with nice defaults but all conversion rules are customizable
-- **👍 Ergonomic**: syntax similar to traditional database wrappers, aiming to offer a database-client-like experience while fitting unique features of notion
+- **📋 Standard**: Built on top of the official JavaScript SDK provided by Notion (v5.4.0+)
+- **🚚 Straightforward type-safety**: Define Notion types and conversion rules, leave the framework to infer types for you
+- **🔎 Auto-discovery**: Give the framework only the ID of the root page, it will discover all databases residing under it
+- **📦 Minimal**: Only necessary wrapper around underlying Notion API while exposing necessary official structures, like `RichTextItemResponse`
+- **🏂 Flexible**: Framework comes with nice defaults but all conversion rules are customizable
+- **👍 Ergonomic**: Syntax similar to traditional database wrappers, aiming to offer a database-client-like experience while fitting unique features of Notion
 
-# Installation
+## Installation
 
 ```bash
 npm install notion-cms-adaptor
@@ -24,17 +24,26 @@ npm install notion-cms-adaptor
 # or bun add notion-cms-adaptor
 ```
 
-# Basic Usage
+## Basic Usage
 
-```tsx
+```typescript
 import {
-  __id, createDBSchemas, createNotionDBClient, DBObjectTypesInfer, files,
-  formula, multi_select, rich_text, rollup, status, title
+  createDBSchemas,
+  createNotionDBClient,
+  DBObjectTypesInfer,
+  files,
+  formula,
+  metadata,
+  multi_select,
+  rich_text,
+  rollup,
+  status,
+  title,
 } from 'notion-cms-adaptor';
 
-const dbSchemas  = createDBSchemas({
+const dbSchemas = createDBSchemas({
   projects: {
-    _id: __id(),
+    _id: metadata("id"),
     tags: multi_select().stringEnums('personal', 'work', 'backlog'),
     name: title().plainText(),
     description: rich_text().raw(),
@@ -45,35 +54,36 @@ const dbSchemas  = createDBSchemas({
     task_status: rollup().handleArrayUsing((value): string[] => {
       return value.reduce((acc, item) => {
         if (item.type === 'status' && item.status) {
-          return acc.concat(item.status.name)
+          return acc.concat(item.status.name);
         }
-        return acc
-      }, [] as string[])
+        return acc;
+      }, [] as string[]);
     }),
   },
-  projects__overview: {  // Another view pointing to the same projects database
-    _id: __id(),
+  projects__overview: {
+    // Another view pointing to the same projects database
+    _id: metadata("id"),
     tags: multi_select().stringEnums('personal', 'work', 'backlog'),
     name: title().plainText(),
-    description: rich_text().plainText(),  // Types can be different
+    description: rich_text().plainText(), // Types can be different
     cover: files().singleNotionImageUrl(),
   },
 });
 
-type DBObjectTypes = DBObjectTypesInfer<typeof dbSchemas>
-export type Project = DBObjectTypes['projects']  // Automatically infer the type after conversion
+type DBObjectTypes = DBObjectTypesInfer<typeof dbSchemas>;
+export type Project = DBObjectTypes['projects'];
 // type Project = {
 //   _id: string,
 //   tags: ('personal' | 'work' | 'backlog')[]
 //   name: string
-//   description: RichTextResponse[]
+//   description: RichTextItemResponse[]
 //   cover: string
 //   images: string[]
 //   status: 'in-progress' | 'done'
 //   active_tasks: number
 //   task_status: string[]
 // }
-export type ProjectOverview = DBObjectTypes['projects__overview']
+export type ProjectOverview = DBObjectTypes['projects__overview'];
 // type ProjectOverview = {
 //   _id: string,
 //   tags: ('personal' | 'work' | 'backlog')[]
@@ -83,79 +93,148 @@ export type ProjectOverview = DBObjectTypes['projects__overview']
 // }
 
 const client = createNotionDBClient({
-  notionToken: process.env.NOTION_TOKEN!,  // Replace with your Notion API token
-  dbPageId: process.env.NOTION_CMS_ENTRY_PAGE_ID!,  // Replace with the ID of the page containing all databases
+  notionToken: process.env.NOTION_TOKEN!,
+  autoDetectDataSources: {
+    pageId: process.env.NOTION_CMS_ENTRY_PAGE_ID!,
+  },
   dbSchemas,
 });
 
 export async function fetchProjects(): Promise<Project[]> {
   return await client.query('projects', {
     // Raw Notion API query parameters
-    // Only without database_id and filter_properties as they are managed by framework
-    sorts: [{
-      property: 'name',
-      direction: 'ascending'
-    }],
+    // Only without data_source_id and filter_properties as they are managed by framework
+    sorts: [
+      {
+        property: 'name',
+        direction: 'ascending',
+      },
+    ],
     filter: {
       property: 'status',
       status: {
-        does_not_equal: 'hidden'
-      }
-    }
-  })  // Conversion and strict type checks happen before return
+        does_not_equal: 'hidden',
+      },
+    },
+  });
 }
 
 export async function addProject(): Promise<Project> {
   return await client.insertEntry('projects', {
-    tags: ['work'],  // Type definition will prevent adding invalid tags
+    tags: ['work'], // Type definition will prevent adding invalid tags
     name: 'New Project',
     description: [{ type: 'text', text: { content: 'Description' } }],
     status: 'in-progress',
     // You may optionally omit cover and images
     // Type definition prevents adding non-mutable fields: _id, active_tasks, task_status
-  })
+  });
 }
 ```
 
-# Auto-Discovery
+## Auto-Detect Data Sources
 
-It is rare that a CMS system require only one collection, so Notion CMS Adaptor provides a handy functionality that allows databases to be automatically discovered, without the need to copy and paste ID for each.
+It is rare that a CMS system requires only one collection, so Notion CMS Adaptor provides a handy functionality that allows databases to be automatically discovered, without the need to copy and paste IDs for each.
 
-You only need to provide the framework with the ID of the page that contains all your databases **on top level**, with each database having a name starting with “db: ” (the prefix can be configured). Then, you can reference each database by their name without the prefix when using other functions.
+You only need to provide the framework with the ID of the page that contains all your databases **on top level**, with each database having a name starting with "db: " (the prefix can be configured). Then, you can reference each database by their name without the prefix when using other functions.
 
-In the basic usage example, the database in notion in fact has the name “db: projects” and resides on the top level of the page “Project CMS” as follow:
+In the basic usage example, the database in Notion in fact has the name "db: projects" and resides on the top level of the page "Project CMS" as follows:
 
 <img width="593" alt="Project Database Example" src="https://github.com/RaymondWHZ/Notion-CMS-Adaptor/assets/30245379/aaa1c46f-391a-44c1-9de9-e9dfefa00b40">
 
-Then, supply the page ID of Project CMS to Notion CMS Adaptor so that the database can be referenced as “projects” in subsequent usages of the framework.
+Then, supply the page ID of Project CMS to Notion CMS Adaptor so that the database can be referenced as "projects" in subsequent usages of the framework.
 
-# Client Functions
+## Client Configuration
 
-- Queries
-  - `query`: simply query a database, optionally accept query parameters to be sent to Notion API, return a list of converted objects
-  - `queryFirst`: same as `query` except that it returns only the first result as a single object instead of a list
-  - `queryOneById`: query one page using its ID
-  - `queryOneWithContentById`: same as `queryOneById` but also puts the content of the page into a designated field, useful in many blog article scenarios
-  - `queryOneByUniqueId`: query one page using its unique ID property, requiring that the database schema contains a unique ID property
-  - `queryOneWithContentByUniqueId`: same as `queryOneByUniqueId` but also puts the content of the page into a designated field, useful in many blog article scenarios
-  - `queryKV`: convert the content of a database into a key-value pair using designated key and value fields, useful in cases where you want to store some metadata
-  - `queryText`: query contents of a page in a database using its title, useful in cases where you want to conveniently store some rich texts
-- Mutations (requires the Notion integration to have write capability)
-  - `insertEntry`: insert a new page into a database, can only specify properties that are mutable
-  - `updateEntry`: update a page in a database with its ID, can only specify properties that are mutable (safe-guards that the page is in the database)
-  - `deleteEntry`: delete a page in a database with its ID (safe-guards that the page is in the database)
+The `createNotionDBClient` function accepts several configuration options:
 
-# Custom Property Names
+### Authentication
+
+You can provide either a Notion token or an existing Notion client:
+
+```typescript
+// Option 1: Using a token (recommended)
+const client = createNotionDBClient({
+  notionToken: process.env.NOTION_TOKEN!,
+  // ...
+});
+
+// Option 2: Using an existing Notion client
+import { Client } from '@notionhq/client';
+
+const notionClient = new Client({
+  auth: process.env.NOTION_TOKEN!,
+  notionVersion: '2025-09-03',
+});
+
+const client = createNotionDBClient({
+  notionClient,
+  // ...
+});
+```
+
+### Data Source Configuration
+
+You can either use auto-discovery or provide a manual mapping:
+
+```typescript
+// Option 1: Auto-discovery (recommended)
+const client = createNotionDBClient({
+  notionToken: process.env.NOTION_TOKEN!,
+  autoDetectDataSources: {
+    pageId: process.env.NOTION_CMS_ENTRY_PAGE_ID!,
+    dataSourcePrefix: 'db: ', // Optional, defaults to "db: "
+  },
+  dbSchemas,
+});
+
+// Option 2: Manual mapping
+const client = createNotionDBClient({
+  notionToken: process.env.NOTION_TOKEN!,
+  dataSourceMap: {
+    projects: 'your-database-id-here',
+    tasks: 'another-database-id-here',
+  },
+  dbSchemas,
+});
+```
+
+## Client Functions
+
+### Queries
+
+| Function | Description |
+|----------|-------------|
+| `query` | Query a database, optionally accepts query parameters to be sent to Notion API, returns a list of converted objects |
+| `queryFirst` | Same as `query` except that it returns only the first result as a single object instead of a list |
+| `queryOneById` | Query one page using its Notion page ID |
+| `queryPageContentById` | Query the content (blocks) of a page by its ID |
+| `queryOneWithContentById` | Same as `queryOneById` but also puts the content of the page into a designated field, useful in many blog article scenarios |
+| `queryOneByUniqueId` | Query one page using its unique ID property, requires that the database schema contains a unique ID property |
+| `queryOneWithContentByUniqueId` | Same as `queryOneByUniqueId` but also puts the content of the page into a designated field |
+| `queryKV` | Convert the content of a database into a key-value pair using designated key and value fields, useful for storing metadata |
+| `queryText` | Query contents of a page in a database using its title, useful for conveniently storing rich texts |
+
+### Mutations
+
+Mutations require the Notion integration to have write capability.
+
+| Function | Description |
+|----------|-------------|
+| `insertEntry` | Insert a new page into a database, can only specify properties that are mutable |
+| `updateEntry` | Update a page in a database with its ID, can only specify properties that are mutable (validates that the page is in the database) |
+| `deleteEntry` | Delete (trash) a page in a database with its ID (validates that the page is in the database) |
+
+## Custom Property Names
 
 By default, the framework uses the TypeScript attribute name as the Notion property name. However, you can specify a different Notion property name by passing it as an argument to the property function:
 
-```tsx
+```typescript
 const dbSchemas = createDBSchemas({
   tasks: {
-    _id: __id(),
+    _id: metadata("id"),
     // TypeScript key is "isDone", but Notion property is named "Done"
     isDone: checkbox("Done").boolean(),
-    // TypeScript key is "desc", but Notion property is named "Description"  
+    // TypeScript key is "desc", but Notion property is named "Description"
     desc: rich_text("Description").plainText(),
     // Without argument, uses TypeScript key "name" as Notion property name
     name: title().plainText(),
@@ -168,74 +247,104 @@ This is useful when:
 - You want cleaner TypeScript attribute names
 - You're working with existing Notion databases where property names don't match your preferred naming convention
 
-# Metadata Properties
+## Metadata Properties
 
 You can reference page metadata (like `id`, `created_time`, `in_trash`, etc.) using the `metadata` function:
 
-```tsx
+```typescript
 const dbSchemas = createDBSchemas({
   projects: {
-    _id: __id(),  // Shorthand for metadata("id")
+    _id: metadata("id"),
     createdAt: metadata("created_time"),
-    inTrash: metadata("in_trash"),  // Automatically mutable
+    inTrash: metadata("in_trash"), // Automatically mutable
+    icon: metadata("icon"), // Automatically mutable
+    cover: metadata("cover"), // Automatically mutable
     // ... other properties
   },
 });
 ```
 
 The `metadata` function automatically returns a mutable or immutable definition based on the key:
-- Mutable keys: `icon`, `cover`, `in_trash`
-- All other metadata keys are read-only
+- **Mutable keys**: `icon`, `cover`, `in_trash`, `is_locked`
+- **Immutable keys**: All other metadata keys (`id`, `created_time`, `last_edited_time`, `url`, `public_url`, `parent`, `created_by`, `last_edited_by`, `archived`)
 
-# Supported schema types and conversions
+### Legacy `__id` Function
 
-| Type               | Mutability (can be include in create/update or not)          | Supported conversions                                                                                                                                                                                                                                                                                                                                                                                          |
-|--------------------|:-------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| checkbox           | ✅ Mutable                                                    | `boolean`: use a boolean value to indicate whether the checkbox is checked (same as raw)                                                                                                                                                                                                                                                                                                                         |
-| created_by         | ❌ Not Mutable                                                | `name`: use name of either the user or bot                                                                                                                                                                                                                                                                                                                                                                       |
-| created_time       | ❌ Not Mutable                                                | `timeString`: use the time string (same as raw)                                                                                                                                                                                                                                                                                                                                                                  |
-| date               | ✅ Mutable                                                    | `dateRange`: use an object with the form { start: string, end: string }, defaults to empty strings                                                                                                                                                                                                                                                                                                               |
-| email              | ✅ Mutable                                                    | `string`: use the string version of the email (same as rawWithDefault with default value '')                                                                                                                                                                                                                                                                                                                     |
-| files              | 🚧 Mutate using raw value (only forward conversion provided) | `urls`: use an array of url to each file<br/>`singleUrl`: use only the first url, ignoring others<br/>`notionImageUrls`: (🚧 Experimental) assume all urls are images stored in Notion, convert url to use Notion’s image optimization<br/>`singleNotionImageUrl`: (🚧 Experimental) assume all urls are images stored in Notion, convert and return the first url to use Notion’s image optimization, ignoring others |
-| formula            | ❌ Not Mutable                                                | `string`: convert any type to string<br/>`numberDefaultZero`: attempt to convert to number, default 0<br/>`booleanDefaultFalse`: attempt to convert to boolean, default false<br/>`dateRange`: same as dateRange for date type                                                                                                                                                                                         |
-| last_edited_by     | ❌ Not Mutable                                                | `name`: use name of either the user or bot                                                                                                                                                                                                                                                                                                                                                                       |
-| last_edited_time   | ❌ Not Mutable                                                | `timeString`: use the time string (same as raw)                                                                                                                                                                                                                                                                                                                                                                  |
-| multi_select       | ✅ Mutable                                                    | `strings`: use an array of names of selected options<br/>`stringEnums`: allow only names in the list                                                                                                                                                                                                                                                                                                               |
-| number             | ✅ Mutable                                                    | `numberDefaultZero`: simply use the number (same as rawWithDefault with default value 0)                                                                                                                                                                                                                                                                                                                         |
-| people             | 🚧 Mutate using raw value (only forward conversion provided) | `names`: use an array of names as string                                                                                                                                                                                                                                                                                                                                                                         |
-| phone_number       | ✅ Mutable                                                    | `string`: use the string version of the phone number (same as rawWithDefault with default value '')                                                                                                                                                                                                                                                                                                              |
-| relation           | ✅ Mutable                                                    | `ids`: use an array of IDs of pages references<br/>`singleId`: use only the first ID and ignore others, infers to a single string type                                                                                                                                                                                                                                                                             |
-| rollup             | ❌ Not Mutable                                                | `dateRange`: same as dateRange for date type<br/>`numberDefaultZero`: same as numberDefaultZero for formula type<br/>`handleArrayUsing`: assume this rollup is of array type, cast the type and let a provided handler to handle                                                                                                                                                                                     |
-| rich_text          | ✅ Mutable                                                    | `plainText`: use the plain text version of the field                                                                                                                                                                                                                                                                                                                                                             |
-| select             | ✅ Mutable                                                    | `string`: use name of selected option, defaults to empty string<br/>`stringEnum`: allow only names in the list                                                                                                                                                                                                                                                                                                     |
-| status             | ✅ Mutable                                                    | `string`: use name of selected status<br/>`stringEnum`: allow only names in the list                                                                                                                                                                                                                                                                                                                               |
-| title              | ✅ Mutable                                                    | `plainText`: use plaintext version of the title                                                                                                                                                                                                                                                                                                                                                                  |
-| url                | ✅ Mutable                                                    | `string`: use the string version of the URL (same as rawWithDefault with default value '')                                                                                                                                                                                                                                                                                                                       |
-| unique_id          | ❌ Not Mutable                                                | `number`: use only the number part of the field, defaults to zero<br/>`stringWithPrefix`: use concatenated string with prefix, same as the one shown in Notion                                                                                                                                                                                                                                                     |
-| verification       | ❌ Not Mutable                                                | Supports only default conversions.                                                                                                                                                                                                                                                                                                                                                                             |
-| __id               | ❌ Not Mutable                                                | A special type indicating using the native ID of the page in Notion. No need to specify conversion.                                                                                                                                                                                                                                                                                                            |
+The `__id()` function is still available as a shorthand for `metadata("id")`:
 
-Meanwhile, all types (except for `__id`) include the following default conversions:
+```typescript
+import { __id } from 'notion-cms-adaptor';
 
-- `raw`: use the native Notion page property type returned by Notion API
-- `rawWithDefault`: same as `raw` except making the inferred type non-nullable by accepting a default value
-- `handleUsing`: convert the value using a supplied handling function (will make mutable types immutable since composer is not provided)
-- (Only for mutable types) `handleAndComposeUsing`:  convert the value using a supplied handling function and convert the value back to Notion type using a supplied compose function
+const dbSchemas = createDBSchemas({
+  projects: {
+    _id: __id(), // Equivalent to metadata("id")
+    // ...
+  },
+});
+```
 
-# Useful Type Utilities
+## Supported Schema Types and Conversions
 
-- `DBInfer`: Pass it the type of the schema of a DB for it to infer converted types for the DB.
-- `DBObjectTypesInfer`: Pass it the type of the whole schema for it to infer converted types for all DBs.
-- `DBMutateInfer`: Pass it the type of schema of a DB for it to infer viable input type for creating/updating records in the DB.
-- `DBMutateObjectTypesInfer`: Pass it the type of the whole schema for it to infer viable input types for creating/updating records in all DBs.
+| Type | Mutability | Supported Conversions |
+|------|:-----------|----------------------|
+| `checkbox` | ✅ Mutable | `boolean()`: Use a boolean value to indicate whether the checkbox is checked (same as raw) |
+| `created_by` | ❌ Immutable | `name()`: Use name of either the user or bot |
+| `created_time` | ❌ Immutable | `timeString()`: Use the time string (same as raw) |
+| `date` | ✅ Mutable | `startDate()`: Use only the start date string<br/>`dateRange()`: Use an object with the form `{ start: string, end: string }`, defaults to empty strings |
+| `email` | ✅ Mutable | `string()`: Use the string version of the email (same as rawWithDefault with default value '') |
+| `files` | 🚧 Partial | `urls()`: Use an array of URLs to each file<br/>`singleUrl()`: Use only the first URL, ignoring others<br/>`notionImageUrls()`: (Experimental) Assume all URLs are images stored in Notion, convert URLs to use Notion's image optimization<br/>`singleNotionImageUrl()`: (Experimental) Same as above but return only the first URL |
+| `formula` | ❌ Immutable | `string()`: Convert any type to string<br/>`numberDefaultZero()`: Attempt to convert to number, default 0<br/>`booleanDefaultFalse()`: Attempt to convert to boolean, default false<br/>`dateRange()`: Same as dateRange for date type |
+| `last_edited_by` | ❌ Immutable | `name()`: Use name of either the user or bot |
+| `last_edited_time` | ❌ Immutable | `timeString()`: Use the time string (same as raw) |
+| `multi_select` | ✅ Mutable | `strings()`: Use an array of names of selected options<br/>`stringEnums()`: Allow only names in the list |
+| `number` | ✅ Mutable | `numberDefaultZero()`: Simply use the number (same as rawWithDefault with default value 0) |
+| `people` | 🚧 Partial | `names()`: Use an array of names as string |
+| `phone_number` | ✅ Mutable | `string()`: Use the string version of the phone number (same as rawWithDefault with default value '') |
+| `relation` | ✅ Mutable | `ids()`: Use an array of IDs of page references<br/>`singleId()`: Use only the first ID, infers to a single string type<br/>`objects()`: Construct objects from relations using related rollup fields |
+| `rollup` | ❌ Immutable | `dateRange()`: Same as dateRange for date type<br/>`numberDefaultZero()`: Same as numberDefaultZero for formula type<br/>`handleSingleUsing()`: Handle the first array item with a custom handler<br/>`handleArrayUsing()`: Handle the full array with a custom handler |
+| `rich_text` | ✅ Mutable | `plainText()`: Use the plain text version of the field |
+| `select` | ✅ Mutable | `optionalString()`: Use name of selected option or undefined<br/>`stringEnum()`: Allow only names in the list |
+| `status` | ✅ Mutable | `string()`: Use name of selected status<br/>`stringEnum()`: Allow only names in the list |
+| `title` | ✅ Mutable | `plainText()`: Use plaintext version of the title |
+| `url` | ✅ Mutable | `string()`: Use the string version of the URL (same as rawWithDefault with default value '') |
+| `unique_id` | ❌ Immutable | `number()`: Use only the number part of the field<br/>`stringWithPrefix()`: Use concatenated string with prefix, same as the one shown in Notion |
+| `verification` | ❌ Immutable | Supports only default conversions |
 
-# Next Steps
+### Default Conversions
 
-This documentation is not complete yet. Please reference the source code for more detailed information.
+All types include the following default conversions:
 
-# Development
+- `raw()`: Use the native Notion page property type returned by Notion API
+- `rawWithDefault(value)`: Same as `raw` except making the inferred type non-nullable by accepting a default value
+- `handleUsing(handler)`: Convert the value using a supplied handling function (will make mutable types immutable since composer is not provided)
+- `handleAndComposeUsing({ handler, composer })`: (Only for mutable types) Convert the value using a supplied handling function and convert the value back to Notion type using a supplied compose function
 
-To develop based on this project, you can clone this repository and run:
+## Type Utilities
+
+| Utility | Description |
+|---------|-------------|
+| `DBInfer<T>` | Pass it the type of the schema of a DB to infer converted types for the DB |
+| `DBObjectTypesInfer<T>` | Pass it the type of the whole schema to infer converted types for all DBs |
+| `DBMutateInfer<T>` | Pass it the type of schema of a DB to infer viable input type for creating/updating records in the DB |
+| `DBMutateObjectTypesInfer<T>` | Pass it the type of the whole schema to infer viable input types for creating/updating records in all DBs |
+
+## Helper Functions
+
+The library also exports some helper functions:
+
+```typescript
+import { packPlainText, convertNotionImage } from 'notion-cms-adaptor';
+
+// Convert rich text items to plain text
+const plainText = packPlainText(richTextItems);
+
+// Convert a Notion image URL to use Notion's image optimization
+const optimizedUrl = convertNotionImage(pageId, preSignedUrl);
+```
+
+## Development
+
+To develop based on this project, clone this repository and run:
 
 ```bash
 bun install
@@ -252,3 +361,7 @@ To build the project:
 ```bash
 bun run build
 ```
+
+## License
+
+MIT
