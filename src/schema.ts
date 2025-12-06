@@ -190,18 +190,30 @@ const makeMutableDefaultOptions = <T extends MutPropertyTypeEnum>(
   };
 };
 
-/**
- * Reference a metadata key.
- */
-export function metadata<T extends NotionPageMetadataKeys>(key: T) {
-  return makeDefaultOptions(`__${key}`);
+function isMutableMetadataKey(
+  key: NotionPageMetadataKeys,
+): key is NotionMutPageMetadataKeys {
+  // These are the mutable metadata keys from UpdatePageParameters
+  const mutableKeys: NotionMutPageMetadataKeys[] = [
+    "icon",
+    "cover",
+    "in_trash",
+  ];
+  return mutableKeys.includes(key as NotionMutPageMetadataKeys);
 }
 
 /**
- * Reference a mutable metadata key.
+ * Reference a metadata key. Automatically returns a mutable definition if the key is mutable.
  */
-export function mutableMetadata<T extends NotionMutPageMetadataKeys>(key: T) {
-  return makeMutableDefaultOptions(`__${key}`);
+export function metadata<T extends NotionPageMetadataKeys>(
+  key: T,
+): T extends NotionMutPageMetadataKeys
+  ? DefaultMutPropertyDef<`__${T}`>
+  : DefaultPropertyDef<`__${T}`> {
+  if (isMutableMetadataKey(key)) {
+    return makeMutableDefaultOptions(`__${key}`) as any;
+  }
+  return makeDefaultOptions(`__${key}`) as any;
 }
 
 const __idOptions = metadata("id");

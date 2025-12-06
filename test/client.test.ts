@@ -5,8 +5,8 @@ import {
   checkbox,
   createDBSchemas,
   createNotionDBClient,
+  metadata,
   multi_select,
-  mutableMetadata,
   relation,
   rich_text,
 } from "../src";
@@ -73,7 +73,7 @@ const dbSchema = createDBSchemas({
   projects: {
     _id: __id(),
     tags: multi_select().stringEnums("personal", "work", "backlog"),
-    _in_trash: mutableMetadata("in_trash"),
+    _in_trash: metadata("in_trash"),
     tasks: relation().objects({
       _id: __id(),
       tags: {
