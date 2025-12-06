@@ -12,19 +12,19 @@ import type {
   DBMutateInfer,
   DBSchemasType,
   DBSchemaType,
-  DBSchemaValueDefinition,
+  DBSchemaValueDef,
   NotionPageContent,
-  NotionMutationProperties,
+  NotionMutProperties,
   ValueComposer,
   ValueHandler,
   ValueType,
   KeysWithValueType,
   DBNamesWithPropertyType,
-  AdapterPropertyTypeEnum,
+  PropertyTypeEnum,
   NotionPageMetadataKeys,
   NotionPageMetadataKeyEnum,
-  AdapterMutablePropertyTypeEnum,
-  NotionMutablePageMetadataKeys,
+  MutPropertyTypeEnum,
+  NotionMutPageMetadataKeys,
   PropertyType,
 } from "./types";
 
@@ -40,7 +40,7 @@ function isAllFullPage(
 }
 
 function isMetadataType(
-  type: AdapterPropertyTypeEnum,
+  type: PropertyTypeEnum,
 ): type is NotionPageMetadataKeyEnum {
   return type.startsWith("__");
 }
@@ -53,9 +53,9 @@ async function processRow<T extends DBSchemaType>(
   const transformedResult = {} as DBInfer<T>;
   for (const [key, def] of Object.entries(schema) as [
     keyof T,
-    DBSchemaValueDefinition,
+    DBSchemaValueDef,
   ][]) {
-    const type: AdapterPropertyTypeEnum = def.type;
+    const type: PropertyTypeEnum = def.type;
     let property: PropertyType<typeof type>;
     let value: ValueType<typeof type>;
     if (isMetadataType(type)) {
@@ -115,9 +115,9 @@ function processKVResults<
 }
 
 type MutateParameters = {
-  [K in NotionMutablePageMetadataKeys]: UpdatePageParameters[K];
+  [K in NotionMutPageMetadataKeys]: UpdatePageParameters[K];
 } & {
-  properties: NotionMutationProperties;
+  properties: NotionMutProperties;
 };
 
 function createMutateData<T extends DBSchemaType>(
@@ -126,15 +126,15 @@ function createMutateData<T extends DBSchemaType>(
 ): MutateParameters {
   const parameters = { properties: {} } as MutateParameters;
   for (const [key, value] of Object.entries(data) as [keyof T, any][]) {
-    const def: DBSchemaValueDefinition = schema[key];
+    const def: DBSchemaValueDef = schema[key];
     if (!("composer" in def)) {
       throw Error(
         `Cannot mutate property '${String(key)}' of type '${def.type}': it has no composer`,
       );
     }
-    const type: AdapterMutablePropertyTypeEnum = def.type;
+    const type: MutPropertyTypeEnum = def.type;
     if (isMetadataType(type)) {
-      const key = type.slice(2) as NotionMutablePageMetadataKeys;
+      const key = type.slice(2) as NotionMutPageMetadataKeys;
       const composer = def.composer as ValueComposer<typeof type>;
       // @ts-expect-error
       parameters[key] = composer(value);

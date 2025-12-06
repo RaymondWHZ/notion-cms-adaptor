@@ -1,13 +1,13 @@
 import type {
-  AdapterMutablePropertyDefinition,
-  AdapterMutablePropertyTypeEnum,
-  AdapterPropertyDefinition,
-  AdapterPropertyTypeEnum,
+  MutPropertyDef,
+  MutPropertyTypeEnum,
+  PropertyDef,
+  PropertyTypeEnum,
   DBSchemasType,
-  MutateValueType,
-  NotionMutablePageMetadataKeys,
+  MutValueType,
+  NotionMutPageMetadataKeys,
   NotionPageMetadataKeys,
-  NotionPropertyDefinition,
+  NotionPropertyDef,
   PropertyInfer,
   ValueComposer,
   ValueHandler,
@@ -51,8 +51,20 @@ export function convertNotionImage(pageId: string, preSignedUrl: string) {
   );
 }
 
-const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
-  const valueToRaw: AdapterPropertyDefinition<T, ValueType<T>> = {
+export interface DefaultPropertyDef<T extends PropertyTypeEnum> {
+  type: T;
+  handler: ValueHandler<T, ValueType<T>>;
+  raw(): PropertyDef<T, ValueType<T>>;
+  rawWithDefault(
+    defaultValue: NonNullable<ValueType<T>>,
+  ): PropertyDef<T, NonNullable<ValueType<T>>>;
+  handleUsing<R>(handler: ValueHandler<T, R>): PropertyDef<T, R>;
+}
+
+const makeDefaultOptions = <T extends PropertyTypeEnum>(
+  type: T,
+): DefaultPropertyDef<T> => {
+  const valueToRaw: PropertyDef<T, ValueType<T>> = {
     type,
     handler: (value) => value,
   };
@@ -66,16 +78,14 @@ const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
      *
      * It is now the same as simply omitting this raw() method call.
      */
-    raw(): AdapterPropertyDefinition<T, ValueType<T>> {
+    raw() {
       return valueToRaw;
     },
     /**
      * Directly return the raw value with a default value if the value is null or undefined. Does not support mutation.
      * @param defaultValue The default value
      */
-    rawWithDefault(
-      defaultValue: NonNullable<ValueType<T>>,
-    ): AdapterPropertyDefinition<T, NonNullable<ValueType<T>>> {
+    rawWithDefault(defaultValue) {
       return {
         type,
         handler: (value) => value ?? defaultValue,
@@ -85,9 +95,7 @@ const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
      * Handle the value using a custom handler. Does not support mutation.
      * @param handler The custom handler
      */
-    handleUsing<R>(
-      handler: ValueHandler<T, R>,
-    ): AdapterPropertyDefinition<T, R> {
+    handleUsing(handler) {
       return {
         type,
         handler,
@@ -96,14 +104,27 @@ const makeDefaultOptions = <T extends AdapterPropertyTypeEnum>(type: T) => {
   };
 };
 
-const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(
+export interface DefaultMutPropertyDef<T extends MutPropertyTypeEnum> {
+  type: T;
+  handler: ValueHandler<T, ValueType<T>>;
+  composer: ValueComposer<T, MutValueType<T>>;
+  raw(): MutPropertyDef<T, ValueType<T>, MutValueType<T>>;
+  rawWithDefault(
+    defaultValue: NonNullable<ValueType<T>>,
+  ): MutPropertyDef<T, NonNullable<ValueType<T>>, MutValueType<T>>;
+  handleUsing<R>(
+    handler: ValueHandler<T, R>,
+  ): MutPropertyDef<T, R, MutValueType<T>>;
+  handleAndComposeUsing<R, I = R>(options: {
+    handler: ValueHandler<T, R>;
+    composer: ValueComposer<T, I>;
+  }): MutPropertyDef<T, R, I>;
+}
+
+const makeMutableDefaultOptions = <T extends MutPropertyTypeEnum>(
   type: T,
-) => {
-  const valueToRaw: AdapterMutablePropertyDefinition<
-    T,
-    ValueType<T>,
-    MutateValueType<T>
-  > = {
+): DefaultMutPropertyDef<T> => {
+  const valueToRaw: MutPropertyDef<T, ValueType<T>, MutValueType<T>> = {
     type,
     handler: (value) => value,
     composer: (value) => value,
@@ -118,24 +139,14 @@ const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(
      *
      * It is now the same as simply omitting this raw() method call.
      */
-    raw(): AdapterMutablePropertyDefinition<
-      T,
-      ValueType<T>,
-      MutateValueType<T>
-    > {
+    raw() {
       return valueToRaw;
     },
     /**
      * Directly return the raw value with a default value if the value is null or undefined. Supports mutation.
      * @param defaultValue The default value
      */
-    rawWithDefault(
-      defaultValue: NonNullable<ValueType<T>>,
-    ): AdapterMutablePropertyDefinition<
-      T,
-      NonNullable<ValueType<T>>,
-      MutateValueType<T>
-    > {
+    rawWithDefault(defaultValue) {
       return {
         type,
         handler: (value) => value ?? defaultValue,
@@ -146,9 +157,7 @@ const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(
      * Handle the value using a custom handler. Supports mutation using the raw underlying value.
      * @param handler The custom handler
      */
-    handleUsing<R>(
-      handler: ValueHandler<T, R>,
-    ): AdapterMutablePropertyDefinition<T, R, MutateValueType<T>> {
+    handleUsing(handler) {
       return {
         type,
         handler,
@@ -160,13 +169,7 @@ const makeMutableDefaultOptions = <T extends AdapterMutablePropertyTypeEnum>(
      * @param handler The custom handler
      * @param composer The custom composer
      */
-    handleAndComposeUsing<R, I = R>({
-      handler,
-      composer,
-    }: {
-      handler: ValueHandler<T, R>;
-      composer: ValueComposer<T, I>;
-    }): AdapterMutablePropertyDefinition<T, R, I> {
+    handleAndComposeUsing({ handler, composer }) {
       return {
         type,
         handler,
@@ -186,9 +189,7 @@ export function metadata<T extends NotionPageMetadataKeys>(key: T) {
 /**
  * Reference a mutable metadata key.
  */
-export function mutableMetadata<T extends NotionMutablePageMetadataKeys>(
-  key: T,
-) {
+export function mutableMetadata<T extends NotionMutPageMetadataKeys>(key: T) {
   return makeMutableDefaultOptions(`__${key}`);
 }
 
@@ -201,7 +202,11 @@ export function __id() {
   return __idOptions;
 }
 
-const checkboxOptions = {
+export interface DefaultCheckboxDef extends DefaultMutPropertyDef<"checkbox"> {
+  boolean(): MutPropertyDef<"checkbox", boolean>;
+}
+
+const checkboxOptions: DefaultCheckboxDef = {
   ...makeMutableDefaultOptions("checkbox"),
   /**
    * Convert the value to a boolean. Supports mutation.
@@ -218,7 +223,11 @@ export function checkbox() {
   return checkboxOptions;
 }
 
-const createdByOptions = {
+export interface DefaultCreatedByDef extends DefaultPropertyDef<"created_by"> {
+  name(): PropertyDef<"created_by", string>;
+}
+
+const createdByOptions: DefaultCreatedByDef = {
   ...makeDefaultOptions("created_by"),
   /**
    * Get the name of the creator. Does not support mutation.
@@ -236,7 +245,11 @@ export function created_by() {
   return createdByOptions;
 }
 
-const createdTimeOptions = {
+export interface DefaultCreatedTimeDef extends DefaultPropertyDef<"created_time"> {
+  timeString(): PropertyDef<"created_time", string>;
+}
+
+const createdTimeOptions: DefaultCreatedTimeDef = {
   ...makeDefaultOptions("created_time"),
   /**
    * Get the time string of the creation time. Does not support mutation.
@@ -256,7 +269,13 @@ export type DateRange = {
   start: string;
   end: string;
 };
-const dateOptions = {
+
+export interface DefaultDateDef extends DefaultMutPropertyDef<"date"> {
+  startDate(): MutPropertyDef<"date", string>;
+  dateRange(): MutPropertyDef<"date", DateRange>;
+}
+
+const dateOptions: DefaultDateDef = {
   ...makeMutableDefaultOptions("date"),
   /**
    * Get the start date of the date range, defaults to empty string. Supports mutation.
@@ -290,7 +309,11 @@ export function date() {
   return dateOptions;
 }
 
-const emailOptions = {
+export interface DefaultEmailDef extends DefaultMutPropertyDef<"email"> {
+  string(): MutPropertyDef<"email", string, string | null>;
+}
+
+const emailOptions: DefaultEmailDef = {
   ...makeMutableDefaultOptions("email"),
   /**
    * Get the email string. Supports mutation.
@@ -306,7 +329,18 @@ export function email() {
   return emailOptions;
 }
 
-const filesOptions = {
+export interface DefaultFilesDef extends DefaultMutPropertyDef<"files"> {
+  urls(): MutPropertyDef<"files", string[], MutValueType<"files">>;
+  singleUrl(): MutPropertyDef<"files", string, MutValueType<"files">>;
+  notionImageUrls(): MutPropertyDef<"files", string[], MutValueType<"files">>;
+  singleNotionImageUrl(): MutPropertyDef<
+    "files",
+    string,
+    MutValueType<"files">
+  >;
+}
+
+const filesOptions: DefaultFilesDef = {
   ...makeMutableDefaultOptions("files"),
   /**
    * Get the urls of the files. Supports mutation using the raw underlying value.
@@ -388,7 +422,14 @@ export function files() {
   return filesOptions;
 }
 
-const formulaOptions = {
+export interface DefaultFormulaDef extends DefaultPropertyDef<"formula"> {
+  string(): PropertyDef<"formula", string>;
+  booleanDefaultFalse(): PropertyDef<"formula", boolean>;
+  numberDefaultZero(): PropertyDef<"formula", number>;
+  dateRange(): PropertyDef<"formula", DateRange>;
+}
+
+const formulaOptions: DefaultFormulaDef = {
   ...makeDefaultOptions("formula"),
   /**
    * Convert the value to string. Does not support mutation.
@@ -448,7 +489,11 @@ export function formula() {
   return formulaOptions;
 }
 
-const lastEditedByOptions = {
+export interface DefaultLastEditedByDef extends DefaultPropertyDef<"last_edited_by"> {
+  name(): PropertyDef<"last_edited_by", string>;
+}
+
+const lastEditedByOptions: DefaultLastEditedByDef = {
   ...makeDefaultOptions("last_edited_by"),
   /**
    * Get the name of the last editor. Does not support mutation.
@@ -466,7 +511,11 @@ export function last_edited_by() {
   return lastEditedByOptions;
 }
 
-const lastEditedTimeOptions = {
+export interface DefaultLastEditedTimeDef extends DefaultPropertyDef<"last_edited_time"> {
+  timeString(): PropertyDef<"last_edited_time", string>;
+}
+
+const lastEditedTimeOptions: DefaultLastEditedTimeDef = {
   ...makeDefaultOptions("last_edited_time"),
   /**
    * Get the time string of the last edit time. Does not support mutation.
@@ -482,7 +531,14 @@ export function last_edited_time() {
   return lastEditedTimeOptions;
 }
 
-const multiSelectOptions = {
+export interface DefaultMultiSelectDef extends DefaultMutPropertyDef<"multi_select"> {
+  strings(): MutPropertyDef<"multi_select", string[]>;
+  stringEnums<T extends string>(
+    ...values: T[]
+  ): MutPropertyDef<"multi_select", T[]>;
+}
+
+const multiSelectOptions: DefaultMultiSelectDef = {
   ...makeMutableDefaultOptions("multi_select"),
   /**
    * Get the names of the options. Supports mutation.
@@ -496,7 +552,9 @@ const multiSelectOptions = {
   /**
    * Get the names of the options, validating that they are in the provided list of values. Supports mutation.
    */
-  stringEnums<T extends string>(...values: T[]) {
+  stringEnums<T extends string>(
+    ...values: T[]
+  ): MutPropertyDef<"multi_select", T[]> {
     return this.handleAndComposeUsing({
       handler: (value) => {
         const names = value.map((option) => option.name);
@@ -521,7 +579,11 @@ export function multi_select() {
   return multiSelectOptions;
 }
 
-const numberOptions = {
+export interface DefaultNumberDef extends DefaultMutPropertyDef<"number"> {
+  numberDefaultZero(): MutPropertyDef<"number", number, number | null>;
+}
+
+const numberOptions: DefaultNumberDef = {
   ...makeMutableDefaultOptions("number"),
   /**
    * If the value is number, return the number; otherwise return 0. Supports mutation.
@@ -537,7 +599,11 @@ export function number() {
   return numberOptions;
 }
 
-const peopleOptions = {
+export interface DefaultPeopleDef extends DefaultMutPropertyDef<"people"> {
+  names(): MutPropertyDef<"people", string[], MutValueType<"people">>;
+}
+
+const peopleOptions: DefaultPeopleDef = {
   ...makeMutableDefaultOptions("people"),
   /**
    * Get the names of the people. Supports mutation using the raw underlying value.
@@ -560,7 +626,11 @@ export function people() {
   return peopleOptions;
 }
 
-const phoneNumberOptions = {
+export interface DefaultPhoneNumberDef extends DefaultMutPropertyDef<"phone_number"> {
+  string(): MutPropertyDef<"phone_number", string, string | null>;
+}
+
+const phoneNumberOptions: DefaultPhoneNumberDef = {
   ...makeMutableDefaultOptions("phone_number"),
   /**
    * Get the phone number string, default to empty string. Supports mutation.
@@ -576,21 +646,30 @@ export function phone_number() {
   return phoneNumberOptions;
 }
 
-interface RollupMappingItem {
+export interface RollupMappingItem {
   rollupField: string;
-  def: NotionPropertyDefinition;
+  def: NotionPropertyDef;
 }
-interface RollupMapping {
-  [key: string]: RollupMappingItem | AdapterPropertyDefinition<"__id">;
+export interface RollupMapping {
+  [key: string]: RollupMappingItem | PropertyDef<"__id">;
 }
-type InferObject<T extends RollupMapping> = {
+export type InferObject<T extends RollupMapping> = {
   [K in keyof T]: T[K] extends RollupMappingItem
     ? PropertyInfer<T[K]["def"]>
-    : T[K] extends AdapterPropertyDefinition<"__id">
+    : T[K] extends PropertyDef<"__id">
       ? PropertyInfer<T[K]>
       : never;
 };
-const relationOptions = {
+
+export interface DefaultRelationDef extends DefaultMutPropertyDef<"relation"> {
+  ids(): MutPropertyDef<"relation", string[]>;
+  singleId(): MutPropertyDef<"relation", string>;
+  objects<M extends RollupMapping>(
+    mapping: M,
+  ): MutPropertyDef<"relation", InferObject<M>[], string[]>;
+}
+
+const relationOptions: DefaultRelationDef = {
   ...makeMutableDefaultOptions("relation"),
   /**
    * Get the ids of the relations. Supports mutation.
@@ -666,7 +745,11 @@ export function relation() {
   return relationOptions;
 }
 
-const richTextOptions = {
+export interface DefaultRichTextDef extends DefaultMutPropertyDef<"rich_text"> {
+  plainText(): MutPropertyDef<"rich_text", string>;
+}
+
+const richTextOptions: DefaultRichTextDef = {
   ...makeMutableDefaultOptions("rich_text"),
   /**
    * Get the plain text version of the field. Supports mutation.
@@ -690,7 +773,19 @@ export type RollupArrayType = Extract<
   { type: "array" }
 >["array"];
 export type RollupArrayItemType = RollupArrayType[number];
-const rollupOptions = {
+
+export interface DefaultRollupDef extends DefaultPropertyDef<"rollup"> {
+  dateRange(): PropertyDef<"rollup", DateRange>;
+  numberDefaultZero(): PropertyDef<"rollup", number>;
+  handleSingleUsing<R>(
+    handler: (value: RollupArrayItemType | undefined) => R,
+  ): PropertyDef<"rollup", R>;
+  handleArrayUsing<R>(
+    handler: (value: RollupArrayType) => R,
+  ): PropertyDef<"rollup", R>;
+}
+
+const rollupOptions: DefaultRollupDef = {
   ...makeDefaultOptions("rollup"),
   /**
    * If the value is date, return the date range; otherwise return a data range with empty start and end. Does not support mutation.
@@ -754,7 +849,14 @@ export function rollup() {
   return rollupOptions;
 }
 
-const selectOptions = {
+export interface DefaultSelectDef extends DefaultMutPropertyDef<"select"> {
+  optionalString(): MutPropertyDef<"select", string | undefined>;
+  stringEnum<T extends string | undefined>(
+    ...values: T[]
+  ): MutPropertyDef<"select", T>;
+}
+
+const selectOptions: DefaultSelectDef = {
   ...makeMutableDefaultOptions("select"),
   /**
    * Get the name of the option. Supports mutation.
@@ -768,7 +870,9 @@ const selectOptions = {
   /**
    * Get the name of the option, validating that it is in the provided list of values. Supports mutation.
    */
-  stringEnum<T extends string | undefined>(...values: T[]) {
+  stringEnum<T extends string | undefined>(
+    ...values: T[]
+  ): MutPropertyDef<"select", T> {
     return this.handleAndComposeUsing({
       handler: (value) => {
         const name = value?.name;
@@ -793,7 +897,12 @@ export function select() {
   return selectOptions;
 }
 
-const statusOptions = {
+export interface DefaultStatusDef extends DefaultMutPropertyDef<"status"> {
+  string(): MutPropertyDef<"status", string>;
+  stringEnum<T extends string>(...values: T[]): MutPropertyDef<"status", T>;
+}
+
+const statusOptions: DefaultStatusDef = {
   ...makeMutableDefaultOptions("status"),
   /**
    * Get the name of the status. Supports mutation.
@@ -832,7 +941,11 @@ export function status() {
   return statusOptions;
 }
 
-const titleOptions = {
+export interface DefaultTitleDef extends DefaultMutPropertyDef<"title"> {
+  plainText(): MutPropertyDef<"title", string>;
+}
+
+const titleOptions: DefaultTitleDef = {
   ...makeMutableDefaultOptions("title"),
   /**
    * Get the plain text version of the title. Supports mutation.
@@ -851,7 +964,11 @@ export function title() {
   return titleOptions;
 }
 
-const urlOptions = {
+export interface DefaultUrlDef extends DefaultMutPropertyDef<"url"> {
+  string(): MutPropertyDef<"url", string, string | null>;
+}
+
+const urlOptions: DefaultUrlDef = {
   ...makeMutableDefaultOptions("url"),
   /**
    * Get the url string, default to empty string. Supports mutation.
@@ -867,7 +984,12 @@ export function url() {
   return urlOptions;
 }
 
-const uniqueIdOptions = {
+export interface DefaultUniqueIdDef extends DefaultPropertyDef<"unique_id"> {
+  number(): PropertyDef<"unique_id", number>;
+  stringWithPrefix(): PropertyDef<"unique_id", string>;
+}
+
+const uniqueIdOptions: DefaultUniqueIdDef = {
   ...makeDefaultOptions("unique_id"),
   /**
    * Get the number of the unique id. Does not support mutation.
@@ -894,7 +1016,9 @@ export function unique_id() {
   return uniqueIdOptions;
 }
 
-const verificationOptions = {
+export type DefaultVerificationDef = DefaultPropertyDef<"verification">;
+
+const verificationOptions: DefaultVerificationDef = {
   ...makeDefaultOptions("verification"),
 };
 /**

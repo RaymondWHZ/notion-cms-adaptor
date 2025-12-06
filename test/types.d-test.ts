@@ -1,15 +1,15 @@
 import { expect, expectError, typesAssignable, typesEqual } from "./utils";
 import {
   DBInfer,
-  AdapterMutablePropertyDefinition,
-  NotionMutablePropertyTypeEnum,
-  AdapterPropertyDefinition,
+  MutPropertyDef,
+  NotionMutPropertyTypeEnum,
+  PropertyDef,
   PropertyInfer,
   MutateInfer,
   KeysWithValueType,
   DBNamesWithPropertyType,
   NotionPageMetadataKeys,
-  AdapterPropertyDefinitionEnum,
+  PropertyDefEnum,
 } from "../src";
 
 expect<
@@ -18,29 +18,29 @@ expect<
 
 expect<
   typesAssignable<
-    NotionMutablePropertyTypeEnum,
+    NotionMutPropertyTypeEnum,
     "number" | "rich_text" | "title" | "files"
   >
 >();
-expectError<typesAssignable<NotionMutablePropertyTypeEnum, "rollup">>();
-expectError<typesAssignable<NotionMutablePropertyTypeEnum, "formula">>();
+expectError<typesAssignable<NotionMutPropertyTypeEnum, "rollup">>();
+expectError<typesAssignable<NotionMutPropertyTypeEnum, "formula">>();
 
 expect<
   typesAssignable<
-    AdapterPropertyDefinitionEnum,
-    AdapterPropertyDefinition<"number"> | AdapterPropertyDefinition<"rich_text">
+    PropertyDefEnum,
+    PropertyDef<"number"> | PropertyDef<"rich_text">
   >
 >();
 
 expect<
   typesAssignable<
-    AdapterMutablePropertyDefinition<"rich_text">["composer"],
+    MutPropertyDef<"rich_text">["composer"],
     (value: string) => [{ text: { content: string } }]
   >
 >();
 expectError<
   typesAssignable<
-    AdapterMutablePropertyDefinition<"rich_text">["composer"],
+    MutPropertyDef<"rich_text">["composer"],
     (value: string) => string
   >
 >();
