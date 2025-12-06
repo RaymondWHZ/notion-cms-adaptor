@@ -145,6 +145,48 @@ Then, supply the page ID of Project CMS to Notion CMS Adaptor so that the databa
   - `updateEntry`: update a page in a database with its ID, can only specify properties that are mutable (safe-guards that the page is in the database)
   - `deleteEntry`: delete a page in a database with its ID (safe-guards that the page is in the database)
 
+# Custom Property Names
+
+By default, the framework uses the TypeScript attribute name as the Notion property name. However, you can specify a different Notion property name by passing it as an argument to the property function:
+
+```tsx
+const dbSchemas = createDBSchemas({
+  tasks: {
+    _id: __id(),
+    // TypeScript key is "isDone", but Notion property is named "Done"
+    isDone: checkbox("Done").boolean(),
+    // TypeScript key is "desc", but Notion property is named "Description"  
+    desc: rich_text("Description").plainText(),
+    // Without argument, uses TypeScript key "name" as Notion property name
+    name: title().plainText(),
+  },
+});
+```
+
+This is useful when:
+- Notion property names contain spaces or special characters
+- You want cleaner TypeScript attribute names
+- You're working with existing Notion databases where property names don't match your preferred naming convention
+
+# Metadata Properties
+
+You can reference page metadata (like `id`, `created_time`, `in_trash`, etc.) using the `metadata` function:
+
+```tsx
+const dbSchemas = createDBSchemas({
+  projects: {
+    _id: __id(),  // Shorthand for metadata("id")
+    createdAt: metadata("created_time"),
+    inTrash: metadata("in_trash"),  // Automatically mutable
+    // ... other properties
+  },
+});
+```
+
+The `metadata` function automatically returns a mutable or immutable definition based on the key:
+- Mutable keys: `icon`, `cover`, `in_trash`
+- All other metadata keys are read-only
+
 # Supported schema types and conversions
 
 | Type               | Mutability (can be include in create/update or not)          | Supported conversions                                                                                                                                                                                                                                                                                                                                                                                          |
