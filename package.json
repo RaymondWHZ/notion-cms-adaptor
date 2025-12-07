@@ -3,9 +3,9 @@
   "description": "A CMS adaptor for Notion",
   "main": "./build/index.js",
   "types": "./build/index.d.ts",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "scripts": {
-    "build": "tsc && bun build ./src/index.ts --outdir ./build --minify",
+    "build": "tsc && bun build ./src/index.ts --outdir ./build --format cjs --minify",
     "test": "tsc --project tsconfig.test.json && bun test"
   },
   "files": [
