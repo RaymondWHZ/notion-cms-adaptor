@@ -306,7 +306,7 @@ export type NotionDBQueryParameters = Pick<
 /**
  * Adds the content of a page to the type of the object.
  */
-export type TypeWithContent<T, ContentKey extends string> = T &
+export type TypeWithContent<T, ContentKey extends string = "content"> = T &
   Record<ContentKey, NotionPageContent>;
 
 /**
