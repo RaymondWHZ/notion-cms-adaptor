@@ -11,8 +11,11 @@ import {
   formula,
   rollup,
   unique_id,
+  NotionPageContent,
 } from "../src";
 import { expectType } from "./utils";
+
+// === setup ===
 
 const dbSchemas = createDBSchemas({
   projects: {
@@ -56,6 +59,8 @@ const client = createNotionDBClient({
   dbSchemas,
 });
 
+// === query ===
+
 expectType<Promise<Project[]>>(
   client.query("projects", {
     // Raw Notion API query parameters
@@ -75,21 +80,46 @@ expectType<Promise<Project[]>>(
   }),
 );
 
+// === queryFirstWithContent ===
+
+expectType<Promise<(Project & { content: NotionPageContent }) | undefined>>(
+  client.queryFirstWithContent("projects", {}),
+);
+expectType<Promise<(Project & { pageContent: NotionPageContent }) | undefined>>(
+  client.queryFirstWithContent("projects", {}, "pageContent"),
+);
+
+// === queryOneByUniqueId ===
+
 void client.queryOneByUniqueId("users", 123);
 // @ts-expect-error
 void client.queryOneByUniqueId("projects", 123);
 
-void client.queryText("projects", "123");
+// === queryPageContentByTitle ===
+
+void client.queryPageContentByTitle("projects", "123");
 // @ts-expect-error
-void client.queryText("users", "123");
+void client.queryPageContentByTitle("users", "123");
+
+// === queryKV ===
+
+const kv = client.queryKV("projects", "_id", "name");
+expectType<Promise<Record<string, string>>>(kv);
 
 type KV = {
   name1: string[];
   name2: string[];
 };
 expectType<Promise<KV>>(client.queryKV("projects", "_id", "images"));
-// @ts-expect-error
-void client.queryKV("projects", "description", "images");
+
+void client.queryKV(
+  "projects",
+  // @ts-expect-error
+  "description",
+  "images",
+);
+
+// === insertEntry ===
 
 expectType<Promise<Project>>(
   client.insertEntry("projects", {
