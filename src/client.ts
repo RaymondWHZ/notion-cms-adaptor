@@ -5,7 +5,7 @@ import type {
   PartialPageObjectResponse,
   QueryDataSourceParameters,
   UpdatePageParameters,
-} from "@notionhq/client/build/src/api-endpoints";
+} from "@notionhq/client";
 import {
   Client,
   collectPaginatedAPI,
@@ -306,8 +306,8 @@ export type NotionDBQueryParameters = Pick<
 /**
  * Adds the content of a page to the type of the object.
  */
-export type TypeWithContent<T, C extends string> = T &
-  Record<C, NotionPageContent>;
+export type TypeWithContent<T, ContentKey extends string> = T &
+  Record<ContentKey, NotionPageContent>;
 
 /**
  * Create a Notion CMS Adapter client.
@@ -341,6 +341,41 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
         throw Error("Page not found in database");
       }
     });
+  }
+
+  async function queryFirstPage<T extends DBName>(
+    db: T,
+    params: NotionDBQueryParameters = {},
+  ): Promise<PageObjectResponse | undefined> {
+    return useDataSourceId(db, async (id) => {
+      const response = await client.dataSources.query({
+        ...params,
+        data_source_id: id,
+        page_size: 1,
+      });
+      if (response.results.length === 0) {
+        return undefined;
+      }
+      const firstResult = response.results[0];
+      if (!isFullPage(firstResult)) {
+        throw Error("Not a full page");
+      }
+      return firstResult;
+    });
+  }
+
+  function getPropertyWithType(
+    db: DBName,
+    type: "title" | "unique_id",
+  ): string {
+    const entry = Object.entries(dbSchemas[db]).find(
+      ([_, type]) => type.type === "title",
+    );
+    if (!entry) {
+      throw Error(`Database has no ${type} property`);
+    }
+    const [prop] = entry;
+    return prop;
   }
 
   return {
@@ -399,8 +434,36 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       db: T,
       params: NotionDBQueryParameters = {},
     ): Promise<DBInfer<S[T]> | undefined> {
-      const results = await this.query(db, params, 1);
-      return results[0];
+      const results = await queryFirstPage(db, params);
+      if (!results) {
+        return undefined;
+      }
+      return await processRow(results, dbSchemas[db], client);
+    },
+
+    /**
+     * Query a database and return the first result with its content.
+     *
+     * @param db The name of the database.
+     * @param params The query parameters.
+     * @param contentProperty The property name to store the content; defaults to "content".
+     */
+    async queryFirstWithContent<T extends DBName, C extends string = "content">(
+      db: T,
+      params: NotionDBQueryParameters = {},
+      contentProperty: C = "content" as C,
+    ): Promise<TypeWithContent<DBInfer<S[T]>, C> | undefined> {
+      const result = await queryFirstPage(db, params);
+      if (!result) {
+        return undefined;
+      }
+      const [properties, content] = await Promise.all([
+        processRow(result, dbSchemas[db], client),
+        this.queryPageContentById(result.id),
+      ]);
+      return Object.assign(properties, {
+        [contentProperty]: content,
+      });
     },
 
     /**
@@ -431,35 +494,27 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
     },
 
     /**
-     * Query content of a page by Notion page ID.
-     *
-     * @param id The ID of the page.
-     */
-    async queryPageContentById(id: string): Promise<NotionPageContent> {
-      return await collectPaginatedAPI(client.blocks.children.list, {
-        block_id: id,
-      });
-    },
-
-    /**
      * Query a page and its content by Notion page ID.
      *
      * @param db The name of the database.
      * @param id The unique ID of the page.
-     * @param contentProperty The property name to store the content.
+     * @param contentProperty The property name to store the content; defaults to "content".
      */
-    async queryOneWithContentById<T extends DBName, C extends string>(
+    async queryOneWithContentById<
+      T extends DBName,
+      C extends string = "content",
+    >(
       db: T,
       id: string,
-      contentProperty: C,
+      contentProperty: C = "content" as C,
     ): Promise<TypeWithContent<DBInfer<S[T]>, C>> {
       const [properties, content] = await Promise.all([
         this.queryOneById(db, id),
         this.queryPageContentById(id),
       ]);
-      const append = {} as Record<C, NotionPageContent>;
-      append[contentProperty] = content;
-      return Object.assign(properties, append);
+      return Object.assign(properties, {
+        [contentProperty]: content,
+      });
     },
 
     /**
@@ -472,9 +527,7 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
       db: T,
       unique_id: number,
     ): Promise<DBInfer<S[T]> | undefined> {
-      const uniqueIdProp = Object.entries(dbSchemas[db]).find(
-        ([_, type]) => type.type === "unique_id",
-      )![0];
+      const uniqueIdProp = getPropertyWithType(db, "unique_id");
       return this.queryFirst(db, {
         filter: {
           property: uniqueIdProp,
@@ -490,20 +543,18 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
      *
      * @param db The name of the database.
      * @param unique_id The unique ID of the page.
-     * @param contentProperty The property name to store the content.
+     * @param contentProperty The property name to store the content; defaults to "content".
      */
     async queryOneWithContentByUniqueId<
       T extends DBNamesWithPropertyType<S, "unique_id">,
-      C extends string,
+      C extends string = "content",
     >(
       db: T,
       unique_id: number,
-      contentProperty: C,
+      contentProperty: C = "content" as C,
     ): Promise<TypeWithContent<DBInfer<S[T]>, C>> {
       return useDataSourceId(db, async (dbId) => {
-        const uniqueIdProp = Object.entries(dbSchemas[db]).find(
-          ([_, type]) => type.type === "unique_id",
-        )![0];
+        const uniqueIdProp = getPropertyWithType(db, "unique_id");
         const response = await client.dataSources.query({
           data_source_id: dbId,
           filter: {
@@ -525,9 +576,9 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
         });
 
         const result = await processRow(uniqueResult, dbSchemas[db], client);
-        const append = {} as Record<C, NotionPageContent>;
-        append[contentProperty] = blockResponse.results;
-        return Object.assign(result, append);
+        return Object.assign(result, {
+          [contentProperty]: blockResponse.results,
+        });
       });
     },
 
@@ -566,19 +617,27 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
     },
 
     /**
+     * Query content of a page by Notion page ID.
+     *
+     * @param id The ID of the page.
+     */
+    async queryPageContentById(id: string): Promise<NotionPageContent> {
+      return await collectPaginatedAPI(client.blocks.children.list, {
+        block_id: id,
+      });
+    },
+
+    /**
      * Query the content of a page by title. If title is not unique, the first page found will be returned.
      *
      * @param db The name of the database.
      * @param title The title of the page.
      */
-    async queryText<T extends DBNamesWithPropertyType<S, "title">>(
-      db: T,
-      title: string,
-    ): Promise<NotionPageContent> {
+    async queryPageContentByTitle<
+      T extends DBNamesWithPropertyType<S, "title">,
+    >(db: T, title: string): Promise<NotionPageContent> {
       return useDataSourceId(db, async (id) => {
-        const titleProp = Object.entries(dbSchemas[db]).find(
-          ([_, type]) => type.type === "title",
-        )![0];
+        const titleProp = getPropertyWithType(db, "title");
         const response = await client.dataSources.query({
           data_source_id: id,
           filter: {
