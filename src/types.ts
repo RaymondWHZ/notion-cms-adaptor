@@ -1,11 +1,10 @@
 import type {
-  BlockObjectResponse,
   CreatePageParameters,
+  ListBlockChildrenResponse,
   PageObjectResponse,
-  PartialBlockObjectResponse,
   UpdatePageParameters,
-} from "@notionhq/client/build/src/api-endpoints";
-import { Client } from "@notionhq/client";
+  Client,
+} from "@notionhq/client";
 
 /**
  * Infer the type of key that has a specific value type in a record.
@@ -18,11 +17,9 @@ export type KeysWithValueType<T extends Record<string, any>, U> = {
 }[keyof T];
 
 /**
- * Content of a Notion page. Same as Array<PartialBlockObjectResponse | BlockObjectResponse>.
+ * Content of a Notion page. Essentially return results of list block children API.
  */
-export type NotionPageContent = Array<
-  PartialBlockObjectResponse | BlockObjectResponse
->;
+export type NotionPageContent = ListBlockChildrenResponse["results"];
 
 /**
  * All possible metadata keys for a Notion page.

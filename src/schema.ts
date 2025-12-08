@@ -13,7 +13,7 @@ import type {
   ValueHandler,
   ValueType,
 } from "./types";
-import type { RichTextItemResponse } from "@notionhq/client/build/src/api-endpoints";
+import type { RichTextItemResponse } from "@notionhq/client";
 
 /**
  * A type safe way to define database schemas. Directly return the schema object.
