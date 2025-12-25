@@ -1,0 +1,95 @@
+---
+title: Notion CMS Adaptor
+description: The ultimate type-safe Notion database toolbox for using Notion as a headless CMS.
+template: splash
+hero:
+  tagline: Type-safe schema definitions, automatic type inference, and convenient query functions for using Notion as your CMS.
+  actions:
+    - text: Get Started
+      link: ./guides/introduction/
+      icon: right-arrow
+    - text: View on GitHub
+      link: https://github.com/RaymondWHZ/notion-cms-adaptor
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## How it works
+
+```typescript
+// Define schema, get full type inference
+const schema = createDBSchemas({
+  posts: {
+    _id: metadata("id"),
+    title: title().plainText(),
+    tags: multi_select().stringEnums('tech', 'life'),
+    status: status().stringEnum('draft', 'published'),
+  },
+});
+
+// Query with typed results
+const posts = await client.query('posts');
+// posts: { _id: string, title: string, tags: ('tech' | 'life')[], status: 'draft' | 'published' }[]
+```
+
+## Features
+
+<CardGrid stagger>
+	<Card title="Type-Safe" icon="approve-check">
+		Define your Notion database schema and let TypeScript infer the types for you. No more guessing what properties exist.
+	</Card>
+	<Card title="Built on Official SDK" icon="puzzle">
+		Uses the official `@notionhq/client` (v5.4.0+) under the hood, ensuring compatibility and reliability.
+	</Card>
+	<Card title="Auto-Discovery" icon="magnifier">
+		Give only the ID of the root page, and the framework discovers all databases residing under it automatically.
+	</Card>
+	<Card title="Flexible Conversions" icon="random">
+		Pre-defined handlers for common conversions, with full customization support when you need it.
+	</Card>
+	<Card title="Mutations Support" icon="pencil">
+		Full support for creating, updating, and deleting entries with type-safe input validation.
+	</Card>
+	<Card title="Minimal Footprint" icon="rocket">
+		Only necessary wrapper around the Notion API while exposing official structures like `RichTextItemResponse`.
+	</Card>
+</CardGrid>
+
+## Installation
+
+```bash
+npm install notion-cms-adaptor
+# or
+yarn add notion-cms-adaptor
+# or
+pnpm install notion-cms-adaptor
+# or
+bun add notion-cms-adaptor
+```
+
+## Usage
+
+```typescript
+import { createDBSchemas, createNotionDBClient, metadata, title, multi_select, status } from 'notion-cms-adaptor';
+
+const dbSchemas = createDBSchemas({
+  posts: {
+    _id: metadata("id"),
+    title: title().plainText(),
+    tags: multi_select().stringEnums('tech', 'life'),
+    status: status().stringEnum('draft', 'published'),
+  },
+});
+
+const client = createNotionDBClient({
+  notionToken: process.env.NOTION_TOKEN!,
+  autoDetectDataSources: { pageId: process.env.NOTION_CMS_PAGE_ID! },
+  dbSchemas,
+});
+
+const posts = await client.query('posts', {
+  filter: { property: 'status', status: { equals: 'published' } },
+});
+```
