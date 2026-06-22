@@ -369,7 +369,7 @@ export function createNotionDBClient<DBS extends DBSchemasType>(
     type: "title" | "unique_id",
   ): string {
     const entry = Object.entries(dbSchemas[db]).find(
-      ([_, type]) => type.type === "title",
+      ([_, def]) => def.type === type,
     );
     if (!entry) {
       throw Error(`Database has no ${type} property`);
